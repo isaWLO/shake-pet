@@ -39,10 +39,11 @@ html, body {
   align-items: center;
   justify-content: space-between;
   padding: 0 10px 0 16px;
-  -webkit-app-region: drag;
+  -webkit-app-region: no-drag;
 }
 
-.drag-space { height: 100%; flex: 1; }
+.drag-space { height: 100%; flex: 1; cursor: grab; }
+.drag-space:active { cursor: grabbing; }
 
 .actions {
   display: flex;
@@ -80,7 +81,12 @@ button:disabled { opacity: .28; cursor: default; }
   top: 52px;
   right: 12px;
   width: 218px;
+  max-height: calc(100% - 64px);
   padding: 14px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   border: 1px solid rgba(255,255,255,.16);
   border-radius: 16px;
   color: rgba(255,255,255,.85);
@@ -88,6 +94,9 @@ button:disabled { opacity: .28; cursor: default; }
   box-shadow: 0 12px 35px rgba(0,0,0,.35);
   backdrop-filter: blur(16px);
 }
+
+.panel::-webkit-scrollbar { width: 6px; }
+.panel::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(255,255,255,.22); }
 
 .panel.hidden, #toast.hidden { display: none; }
 .panel label { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 13px; font-size: 12px; }

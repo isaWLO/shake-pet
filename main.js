@@ -225,6 +225,8 @@ function stopWindowDrag() {
 ipcMain.on('begin-window-drag', (_event, start) => {
   if (!win || win.isDestroyed()) return;
   stopWindowDrag();
+  stopResizeAnimation();
+  resizeTarget = null;
   const bounds = win.getBounds();
   const cursor = screen.getCursorScreenPoint();
   const requestedX = Number(start?.screenX);
@@ -232,6 +234,8 @@ ipcMain.on('begin-window-drag', (_event, start) => {
   const origin = {
     x: Math.round(bounds.x),
     y: Math.round(bounds.y),
+    width: Math.round(bounds.width),
+    height: Math.round(bounds.height),
     cursorX: Number.isFinite(requestedX) ? Math.round(requestedX) : cursor.x,
     cursorY: Number.isFinite(requestedY) ? Math.round(requestedY) : cursor.y
   };
@@ -246,7 +250,12 @@ ipcMain.on('begin-window-drag', (_event, start) => {
     const now = performance.now();
     const dt = Math.max(8, now - lastTime);
     try {
-      win.setPosition(nextX, nextY, false);
+      win.setBounds({
+        x: nextX,
+        y: nextY,
+        width: origin.width,
+        height: origin.height
+      }, false);
       win.webContents.send('window-motion', {
         vx: (point.x - lastPoint.x) / dt,
         vy: (point.y - lastPoint.y) / dt,

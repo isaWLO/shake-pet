@@ -35,7 +35,7 @@ if not exist "node_modules\electron\dist\electron.exe" (
 
 :installed
 echo Starting Shake Pet...
-start "" "%~dp0node_modules\electron\dist\electron.exe" "%~dp0"
+start "" "%~dp0node_modules\electron\dist\electron.exe" .
 exit /b 0
 
 :install_failed
