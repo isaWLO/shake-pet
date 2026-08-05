@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>解锁</title></head>
+<body>
+  <button id="unlock" title="解锁摇摇乐（Ctrl+Shift+L）">
+    <svg viewBox="0 0 100 100" aria-hidden="true">
+      <path d="M28 30C30 13 39 5 52 5c15 0 24 11 22 27l-2 12" fill="none" stroke="currentColor" stroke-width="12" />
+      <path fill="currentColor" fill-rule="evenodd" d="M18 40h64a8 8 0 0 1 8 8v40a8 8 0 0 1-8 8H18a8 8 0 0 1-8-8V48a8 8 0 0 1 8-8Zm32 17a8 8 0 0 0-4 15v13h8V72a8 8 0 0 0-4-15Z" />
+    </svg>
+  </button>
+  <style>
+    *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent}
+    button{width:34px;height:34px;margin:1px;padding:8px;border:1px solid rgba(255,255,255,.10);border-radius:50%;color:rgba(255,255,255,.30);background:rgba(20,26,38,.06);box-shadow:0 2px 8px rgba(0,0,0,.07);backdrop-filter:blur(3px);cursor:pointer}
+    button:hover{color:rgba(255,255,255,.9);background:rgba(80,140,210,.28)}
+    svg{display:block;width:100%;height:100%;overflow:visible}
+  </style>
+  <script>document.querySelector('#unlock').addEventListener('click',()=>window.desktopPet.unlock());</script>
+</body>
+</html>

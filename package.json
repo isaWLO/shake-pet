@@ -1,0 +1,14 @@
+{
+  "name": "shake-pet",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A transparent Windows desktop shake-toy widget",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "electron": "^37.2.3",
+    "matter-js": "^0.20.0"
+  }
+}

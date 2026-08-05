@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>摇摇乐</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main id="toy" data-shape="bottle">
+    <canvas id="world"></canvas>
+
+    <header id="handle">
+      <span class="drag-space" aria-hidden="true"></span>
+      <div class="actions">
+        <button id="add" title="添加图片">＋</button>
+        <button id="cutout" title="手动抠图" disabled>✂</button>
+        <button id="remove" title="删除选中图片" disabled>⌫</button>
+        <button id="settings" title="瓶子设置">◈</button>
+        <button id="gravity" class="active" title="开关重力">↓</button>
+        <button id="save" title="打开瓶子库"><span class="save-glyph"></span></button>
+        <button id="lock" title="锁定并允许鼠标穿透（Ctrl+Shift+L 解锁）">
+          <svg class="lock-svg" viewBox="0 0 100 100" aria-hidden="true">
+            <path d="M27 44V30C27 13 37 5 50 5s23 8 23 25v14" fill="none" stroke="currentColor" stroke-width="12" />
+            <path fill="currentColor" fill-rule="evenodd" d="M18 40h64a8 8 0 0 1 8 8v40a8 8 0 0 1-8 8H18a8 8 0 0 1-8-8V48a8 8 0 0 1 8-8Zm32 17a8 8 0 0 0-4 15v13h8V72a8 8 0 0 0-4-15Z" />
+          </svg>
+        </button>
+        <button id="close" title="关闭">×</button>
+      </div>
+    </header>
+
+    <section id="settings-panel" class="panel hidden">
+      <label>
+        <span>容器形状</span>
+        <select id="shape">
+          <option value="bottle">汽水瓶</option>
+          <option value="box">展示盒</option>
+        </select>
+      </label>
+      <label>
+        <span>瓶子颜色</span>
+        <input id="container-color" type="color" value="#79b8ff" />
+      </label>
+      <label>
+        <span>默认图片大小 <output id="default-size-value">100%</output></span>
+        <input id="default-size" type="range" min="40" max="180" value="100" />
+      </label>
+      <label>
+        <span>默认塑料框 <output id="default-rim-value">16</output></span>
+        <input id="default-rim" type="range" min="1" max="32" value="16" />
+      </label>
+      <label>
+        <span>容器宽度 <output id="window-width-value">360</output></span>
+        <input id="window-width" type="range" min="300" max="700" value="360" />
+      </label>
+      <label>
+        <span>容器高度 <output id="window-height-value">460</output></span>
+        <input id="window-height" type="range" min="340" max="850" value="460" />
+      </label>
+      <div class="size-presets">
+        <button data-size="320,400">小</button>
+        <button data-size="360,460">中</button>
+        <button data-size="460,600">大</button>
+      </div>
+      <label class="check">
+        <input id="auto-cutout" type="checkbox" checked />
+        <span>导入时自动抠图</span>
+      </label>
+      <p>图片设置会在选中图片后单独出现；剪刀打开手动抠图编辑器。</p>
+    </section>
+
+    <section id="scene-panel" class="scene-panel hidden">
+      <div class="scene-head">
+        <strong>瓶子库</strong>
+        <button id="scene-close" title="关闭">×</button>
+      </div>
+      <input id="scene-name" type="text" maxlength="30" placeholder="给这个瓶子起名" />
+      <div class="scene-actions">
+        <button id="scene-new">另存为新瓶子</button>
+        <button id="scene-update">更新当前</button>
+      </div>
+      <div id="scene-list"></div>
+    </section>
+
+    <section id="selection-panel" class="selection-panel hidden">
+      <strong>选中的图片</strong>
+      <label>
+        <span>图片大小 <output id="sprite-size-value">100%</output></span>
+        <input id="sprite-size" type="range" min="40" max="180" value="100" />
+      </label>
+      <label>
+        <span>塑料框宽度 <output id="rim-width-value">6</output></span>
+        <input id="rim-width" type="range" min="1" max="32" value="16" />
+      </label>
+    </section>
+
+    <section id="cutout-editor" class="editor hidden">
+      <div class="editor-head">
+        <div><strong>手动抠图</strong><small>在图片上拖动笔刷</small></div>
+        <button id="editor-close" title="取消">×</button>
+      </div>
+      <div class="editor-stage checkerboard">
+        <canvas id="editor-canvas"></canvas>
+      </div>
+      <div class="editor-controls">
+        <div class="mode-buttons">
+          <button id="mode-erase" class="active wide">擦除</button>
+          <button id="mode-restore" class="wide">恢复</button>
+          <button id="editor-auto" class="wide">自动重抠</button>
+        </div>
+        <label>
+          <span>笔刷 <output id="brush-value">28</output></span>
+          <input id="brush-size" type="range" min="5" max="100" value="28" />
+        </label>
+        <label>
+          <span>自动抠图强度 <output id="threshold-value">42</output></span>
+          <input id="threshold" type="range" min="8" max="100" value="42" />
+        </label>
+        <div class="editor-actions">
+          <button id="editor-cancel" class="text-button">取消</button>
+          <button id="editor-apply" class="text-button primary">应用抠图</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="empty">
+      <strong>把图片放进瓶子</strong>
+      <span>点击＋或拖入图片，空白处可拖动整个瓶子</span>
+    </div>
+    <div id="toast" class="hidden"></div>
+  </main>
+  <script src="node_modules/matter-js/build/matter.min.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>
