@@ -3,6 +3,7 @@ const { Engine, Bodies, Body, Composite, Vertices } = Matter;
 const canvas = document.querySelector('#world');
 const ctx = canvas.getContext('2d');
 const toy = document.querySelector('#toy');
+const dragSpace = document.querySelector('.drag-space');
 const empty = document.querySelector('#empty');
 const removeButton = document.querySelector('#remove');
 const cutoutButton = document.querySelector('#cutout');
@@ -946,10 +947,17 @@ canvas.addEventListener('pointerdown', (event) => {
     return;
   }
   setSelection(null);
+  beginWindowDrag(event);
+});
+
+function beginWindowDrag(event) {
+  if (draggingWindow || event.button !== 0) return;
   draggingWindow = true;
   canvas.classList.add('dragging');
   window.desktopPet.beginWindowDrag(event.screenX, event.screenY);
-});
+}
+
+dragSpace.addEventListener('pointerdown', beginWindowDrag);
 
 canvas.addEventListener('pointermove', event => {
   if (!draggedBody || event.pointerId !== draggedPointerId) return;
