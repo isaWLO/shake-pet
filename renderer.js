@@ -81,6 +81,7 @@ let audioStartPromise = null;
 let audioCaptureGeneration = 0;
 let audioBassBaseline = .04;
 let audioLastBeatAt = 0;
+let audioLastLaunchAt = 0;
 let audioBeatPending = false;
 let audioKick = 0;
 let audioShakePhase = 0;
@@ -300,17 +301,26 @@ function applyAudioReactiveMotion(now) {
   audioKick *= .86;
 
   const bodies = Composite.allBodies(engine.world).filter(body => sprites.has(body.id) && !body.isStatic);
+  const pulseEnergy = audioLevels.bass * .72 + audioLevels.volume * .28;
+  const launchInterval = Math.max(150, 390 - pulseEnergy * 250);
+  if (!audioBeatPending && pulseEnergy > .18 && now - audioLastLaunchAt > launchInterval) {
+    audioBeatPending = true;
+  }
   if (audioBeatPending) {
     audioBeatPending = false;
-    audioKick = Math.max(audioKick, .45 + audioLevels.bass * .85);
-    const lift = (1.05 + audioLevels.bass * 3.9) * bassStrength * strength;
-    for (const body of bodies) {
-      const direction = Math.sin(body.id * 12.9898 + now * .004);
-      Body.setVelocity(body, {
-        x: Math.max(-18, Math.min(18, body.velocity.x + direction * lift * .72)),
-        y: Math.max(-18, Math.min(18, body.velocity.y - lift))
-      });
-      Body.setAngularVelocity(body, Math.max(-.18, Math.min(.18, body.angularVelocity + direction * lift * .018)));
+    if (now - audioLastLaunchAt > 110) {
+      audioLastLaunchAt = now;
+      audioKick = Math.max(audioKick, .65 + audioLevels.bass * .95);
+      const launchSpeed = Math.min(18, (6 + audioLevels.bass * 8 + audioLevels.volume * 4) * bassStrength * strength);
+      for (const body of bodies) {
+        const direction = Math.sin(body.id * 12.9898 + now * .004);
+        const variation = .88 + (body.id % 7) * .025;
+        Body.setVelocity(body, {
+          x: Math.max(-18, Math.min(18, body.velocity.x + direction * launchSpeed * .42)),
+          y: Math.max(-18, Math.min(18, Math.min(0, body.velocity.y) - launchSpeed * variation))
+        });
+        Body.setAngularVelocity(body, Math.max(-.18, Math.min(.18, body.angularVelocity + direction * launchSpeed * .025)));
+      }
     }
   }
 
@@ -329,7 +339,7 @@ function applyAudioReactiveMotion(now) {
       const direction = Math.sin(audioShakePhase + body.id * 1.91);
       Body.applyForce(body, body.position, {
         x: direction * jitter * .00034 * body.mass,
-        y: -liftForce * .00018 * body.mass
+        y: -liftForce * .00034 * body.mass
       });
     }
   }
