@@ -277,6 +277,15 @@ function updateTestSpectrum(elapsed, pulse) {
   });
 }
 
+function audioWaveMaximumHeight() {
+  const strength = Math.max(0, Math.min(2, Number(audioStrengthInput.value) / 100));
+  return Math.min(68, innerHeight * .18) * (.84 + strength * .08);
+}
+
+function audioWaveDisplayLevel(value) {
+  return Math.min(.82, Math.max(0, value));
+}
+
 function drawAudioWaveform() {
   let peak = 0;
   for (const value of audioSpectrum) peak = Math.max(peak, value);
@@ -287,7 +296,7 @@ function drawAudioWaveform() {
   const left = shapeSelect.value === 'bottle' ? innerWidth * .13 : 18;
   const right = shapeSelect.value === 'bottle' ? innerWidth * .87 : innerWidth - 18;
   const baseline = innerHeight - (shapeSelect.value === 'bottle' ? 31 : 36);
-  const maximumHeight = Math.min(92, innerHeight * .24) * Math.max(.35, Number(audioStrengthInput.value) / 100);
+  const maximumHeight = audioWaveMaximumHeight();
 
   ctx.save();
   ctx.clip(path);
@@ -295,7 +304,7 @@ function drawAudioWaveform() {
   ctx.moveTo(left, baseline);
   for (let index = 0; index < audioSpectrum.length; index++) {
     const x = left + (right - left) * index / (audioSpectrum.length - 1);
-    const y = baseline - audioSpectrum[index] * maximumHeight;
+    const y = baseline - audioWaveDisplayLevel(audioSpectrum[index]) * maximumHeight;
     ctx.lineTo(x, y);
   }
   ctx.lineTo(right, baseline);
@@ -309,7 +318,7 @@ function drawAudioWaveform() {
   ctx.beginPath();
   for (let index = 0; index < audioSpectrum.length; index++) {
     const x = left + (right - left) * index / (audioSpectrum.length - 1);
-    const y = baseline - audioSpectrum[index] * maximumHeight;
+    const y = baseline - audioWaveDisplayLevel(audioSpectrum[index]) * maximumHeight;
     if (index === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   }
