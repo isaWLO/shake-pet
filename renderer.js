@@ -35,6 +35,17 @@ const defaultRimValue = document.querySelector('#default-rim-value');
 const scenePanel = document.querySelector('#scene-panel');
 const sceneNameInput = document.querySelector('#scene-name');
 const sceneListElement = document.querySelector('#scene-list');
+const audioReactiveInput = document.querySelector('#audio-reactive');
+const audioSensitivityInput = document.querySelector('#audio-sensitivity');
+const audioSensitivityValue = document.querySelector('#audio-sensitivity-value');
+const audioBassInput = document.querySelector('#audio-bass');
+const audioBassValue = document.querySelector('#audio-bass-value');
+const audioStrengthInput = document.querySelector('#audio-strength');
+const audioStrengthValue = document.querySelector('#audio-strength-value');
+const audioStatusElement = document.querySelector('#audio-status');
+const audioStatusRow = document.querySelector('.audio-status-row');
+const audioMeter = document.querySelector('#audio-meter');
+const audioTestButton = document.querySelector('#audio-test');
 
 const engine = Engine.create({ gravity: { x: 0, y: 1, scale: 0.0015 } });
 engine.positionIterations = 12;
@@ -60,6 +71,24 @@ let spriteDragVelocity = { x: 0, y: 0 };
 let spriteDragStart = null;
 let spriteDragMoved = false;
 let viewportSize = null;
+let audioStream = null;
+let audioContext = null;
+let audioAnalyser = null;
+let audioSourceNode = null;
+let audioFrequencyData = null;
+let audioWaveformData = null;
+let audioStartPromise = null;
+let audioCaptureGeneration = 0;
+let audioBassBaseline = .04;
+let audioLastBeatAt = 0;
+let audioBeatPending = false;
+let audioKick = 0;
+let audioShakePhase = 0;
+let audioVisualOffset = { x: 0, y: 0 };
+let audioTestUntil = 0;
+let audioTestStartedAt = 0;
+let audioTestBeatIndex = -1;
+const audioLevels = { volume: 0, bass: 0, mid: 0, high: 0 };
 
 const preferences = JSON.parse(localStorage.getItem('shake-pet-preferences') || '{}');
 shapeSelect.value = ['bottle', 'box'].includes(preferences.shape) ? preferences.shape : 'bottle';
@@ -70,11 +99,18 @@ windowWidthInput.value = preferences.windowWidth || 360;
 windowHeightInput.value = preferences.windowHeight || 460;
 defaultSizeInput.value = preferences.defaultSize || 100;
 defaultRimInput.value = preferences.defaultRim || 16;
+audioReactiveInput.checked = false;
+audioSensitivityInput.value = preferences.audioSensitivity || 100;
+audioBassInput.value = preferences.audioBass || 100;
+audioStrengthInput.value = preferences.audioStrength || 100;
 thresholdValue.value = thresholdInput.value;
 windowWidthValue.value = windowWidthInput.value;
 windowHeightValue.value = windowHeightInput.value;
 defaultSizeValue.value = `${defaultSizeInput.value}%`;
 defaultRimValue.value = defaultRimInput.value;
+audioSensitivityValue.value = `${audioSensitivityInput.value}%`;
+audioBassValue.value = `${audioBassInput.value}%`;
+audioStrengthValue.value = `${audioStrengthInput.value}%`;
 toy.dataset.shape = shapeSelect.value;
 
 function savePreferences() {
@@ -86,7 +122,10 @@ function savePreferences() {
     windowWidth: Number(windowWidthInput.value),
     windowHeight: Number(windowHeightInput.value),
     defaultSize: Number(defaultSizeInput.value),
-    defaultRim: Number(defaultRimInput.value)
+    defaultRim: Number(defaultRimInput.value),
+    audioSensitivity: Number(audioSensitivityInput.value),
+    audioBass: Number(audioBassInput.value),
+    audioStrength: Number(audioStrengthInput.value)
   }));
 }
 
@@ -95,6 +134,205 @@ function showToast(message) {
   toastElement.textContent = message;
   toastElement.classList.remove('hidden');
   toastTimer = setTimeout(() => toastElement.classList.add('hidden'), 2200);
+}
+
+function setAudioStatus(message, state = '') {
+  if (audioStatusElement.textContent !== message) audioStatusElement.textContent = message;
+  audioStatusRow.classList.toggle('active', state === 'active');
+  audioStatusRow.classList.toggle('error', state === 'error');
+}
+
+function stopSystemAudio(message = '尚未开启', state = '') {
+  audioCaptureGeneration++;
+  audioStartPromise = null;
+  const stream = audioStream;
+  const context = audioContext;
+  const sourceNode = audioSourceNode;
+  audioStream = null;
+  audioContext = null;
+  audioAnalyser = null;
+  audioSourceNode = null;
+  audioFrequencyData = null;
+  audioWaveformData = null;
+  if (stream) for (const track of stream.getTracks()) track.stop();
+  if (sourceNode) sourceNode.disconnect();
+  if (context && context.state !== 'closed') context.close().catch(() => {});
+  audioReactiveInput.checked = false;
+  audioMeter.value = 0;
+  setAudioStatus(message, state);
+}
+
+async function startSystemAudio() {
+  if (audioAnalyser) return;
+  if (audioStartPromise) return audioStartPromise;
+  const generation = ++audioCaptureGeneration;
+  const startPromise = (async () => {
+    setAudioStatus('正在连接…', 'active');
+    let stream;
+    let context;
+    try {
+      stream = await navigator.mediaDevices.getDisplayMedia({
+        audio: true,
+        video: { width: 1, height: 1, frameRate: 1 }
+      });
+      if (generation !== audioCaptureGeneration) {
+        for (const track of stream.getTracks()) track.stop();
+        return;
+      }
+      const audioTrack = stream.getAudioTracks()[0];
+      if (!audioTrack) throw new Error('没有读取到系统音频轨道');
+      for (const track of stream.getVideoTracks()) track.stop();
+
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      context = new AudioContextClass({ latencyHint: 'interactive' });
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = .72;
+      const sourceNode = context.createMediaStreamSource(stream);
+      sourceNode.connect(analyser);
+      await context.resume();
+      if (generation !== audioCaptureGeneration) {
+        sourceNode.disconnect();
+        for (const track of stream.getTracks()) track.stop();
+        await context.close();
+        return;
+      }
+
+      audioStream = stream;
+      audioContext = context;
+      audioAnalyser = analyser;
+      audioSourceNode = sourceNode;
+      audioFrequencyData = new Uint8Array(analyser.frequencyBinCount);
+      audioWaveformData = new Uint8Array(analyser.fftSize);
+      audioTrack.addEventListener('ended', () => {
+        if (audioStream === stream) stopSystemAudio('音频捕获已停止');
+      }, { once: true });
+      audioReactiveInput.checked = true;
+      setAudioStatus('正在监听', 'active');
+      showToast('已开启电脑音频震动');
+    } catch (error) {
+      if (stream) for (const track of stream.getTracks()) track.stop();
+      if (context && context.state !== 'closed') await context.close().catch(() => {});
+      if (generation !== audioCaptureGeneration) return;
+      stopSystemAudio('无法读取系统音频', 'error');
+      throw error;
+    }
+  })();
+  audioStartPromise = startPromise;
+  try {
+    await startPromise;
+  } finally {
+    if (audioStartPromise === startPromise) audioStartPromise = null;
+  }
+}
+
+function frequencyBandLevel(minimumHz, maximumHz) {
+  if (!audioAnalyser || !audioFrequencyData || !audioContext) return 0;
+  const nyquist = audioContext.sampleRate / 2;
+  const first = Math.max(0, Math.floor(minimumHz / nyquist * audioFrequencyData.length));
+  const last = Math.min(audioFrequencyData.length - 1, Math.ceil(maximumHz / nyquist * audioFrequencyData.length));
+  let total = 0;
+  for (let index = first; index <= last; index++) total += audioFrequencyData[index];
+  return total / Math.max(1, last - first + 1) / 255;
+}
+
+function approachAudioLevel(current, target) {
+  return current + (target - current) * (target > current ? .46 : .14);
+}
+
+function analyzeAudio(now) {
+  let volume = 0;
+  let bass = 0;
+  let mid = 0;
+  let high = 0;
+  const testing = now < audioTestUntil;
+
+  if (testing) {
+    const elapsed = now - audioTestStartedAt;
+    const beatIndex = Math.floor(elapsed / 360);
+    const phase = (elapsed % 360) / 360;
+    const pulse = Math.exp(-phase * 7);
+    volume = .28 + pulse * .62;
+    bass = .18 + pulse * .82;
+    mid = .22 + pulse * .25;
+    high = .10 + pulse * .16;
+    if (beatIndex !== audioTestBeatIndex) {
+      audioTestBeatIndex = beatIndex;
+      audioBeatPending = true;
+    }
+    setAudioStatus('测试中', 'active');
+  } else if (audioAnalyser && audioFrequencyData && audioWaveformData) {
+    audioAnalyser.getByteFrequencyData(audioFrequencyData);
+    audioAnalyser.getByteTimeDomainData(audioWaveformData);
+    let squares = 0;
+    for (const sample of audioWaveformData) {
+      const normalized = (sample - 128) / 128;
+      squares += normalized * normalized;
+    }
+    const sensitivity = Number(audioSensitivityInput.value) / 100;
+    const rms = Math.sqrt(squares / audioWaveformData.length);
+    volume = Math.max(0, Math.min(1, (rms - .012) * sensitivity * 3.4));
+    bass = Math.max(0, Math.min(1, (frequencyBandLevel(20, 180) - .025) * sensitivity * 2.15));
+    mid = Math.max(0, Math.min(1, (frequencyBandLevel(180, 2200) - .018) * sensitivity * 2.0));
+    high = Math.max(0, Math.min(1, (frequencyBandLevel(2200, 9000) - .012) * sensitivity * 2.2));
+
+    audioBassBaseline = audioBassBaseline * .965 + bass * .035;
+    if (bass > .13 && bass > audioBassBaseline * 1.48 && now - audioLastBeatAt > 130) {
+      audioLastBeatAt = now;
+      audioBeatPending = true;
+    }
+    setAudioStatus(volume + bass > .035 ? '正在响应' : '正在监听', 'active');
+  } else {
+    if (!audioStatusRow.classList.contains('error')) setAudioStatus('尚未开启');
+  }
+
+  audioLevels.volume = approachAudioLevel(audioLevels.volume, volume);
+  audioLevels.bass = approachAudioLevel(audioLevels.bass, bass);
+  audioLevels.mid = approachAudioLevel(audioLevels.mid, mid);
+  audioLevels.high = approachAudioLevel(audioLevels.high, high);
+  audioMeter.value = Math.min(1, audioLevels.volume * .72 + audioLevels.bass * .48);
+}
+
+function applyAudioReactiveMotion(now) {
+  analyzeAudio(now);
+  const strength = Number(audioStrengthInput.value) / 100;
+  const bassStrength = Number(audioBassInput.value) / 100;
+  audioKick *= .86;
+
+  const bodies = Composite.allBodies(engine.world).filter(body => sprites.has(body.id) && !body.isStatic);
+  if (audioBeatPending) {
+    audioBeatPending = false;
+    audioKick = Math.max(audioKick, .45 + audioLevels.bass * .85);
+    const lift = (1.05 + audioLevels.bass * 3.9) * bassStrength * strength;
+    for (const body of bodies) {
+      const direction = Math.sin(body.id * 12.9898 + now * .004);
+      Body.setVelocity(body, {
+        x: Math.max(-18, Math.min(18, body.velocity.x + direction * lift * .72)),
+        y: Math.max(-18, Math.min(18, body.velocity.y - lift))
+      });
+      Body.setAngularVelocity(body, Math.max(-.18, Math.min(.18, body.angularVelocity + direction * lift * .018)));
+    }
+  }
+
+  audioShakePhase += .35 + audioLevels.high * 1.4;
+  const activity = audioLevels.volume * .7 + audioLevels.mid * .25 + audioLevels.high * .12;
+  const amplitude = Math.min(6, (activity * 3.1 + audioKick * 3.2) * strength);
+  const targetX = Math.sin(audioShakePhase * 1.7) * amplitude;
+  const targetY = Math.cos(audioShakePhase * 2.2) * amplitude * .28 - audioKick * strength * 1.5;
+  audioVisualOffset.x += (targetX - audioVisualOffset.x) * .48;
+  audioVisualOffset.y += (targetY - audioVisualOffset.y) * .48;
+
+  if (activity > .008 || audioKick > .01) {
+    const jitter = (audioLevels.mid * .52 + audioLevels.high * .34 + audioLevels.volume * .12) * strength;
+    const liftForce = audioLevels.bass * bassStrength * strength;
+    for (const body of bodies) {
+      const direction = Math.sin(audioShakePhase + body.id * 1.91);
+      Body.applyForce(body, body.position, {
+        x: direction * jitter * .00034 * body.mass,
+        y: -liftForce * .00018 * body.mass
+      });
+    }
+  }
 }
 
 function addWall(x1, y1, x2, y2, thickness = 26) {
@@ -882,8 +1120,11 @@ function bodyAt(x, y) {
 }
 
 function tick() {
+  applyAudioReactiveMotion(performance.now());
   Engine.update(engine, 1000 / 60);
   ctx.clearRect(0, 0, innerWidth, innerHeight);
+  ctx.save();
+  ctx.translate(audioVisualOffset.x, audioVisualOffset.y);
   drawContainer();
   for (const body of Composite.allBodies(engine.world)) {
     const sprite = sprites.get(body.id);
@@ -904,6 +1145,7 @@ function tick() {
     }
     ctx.restore();
   }
+  ctx.restore();
   requestAnimationFrame(tick);
 }
 
@@ -1044,6 +1286,38 @@ thresholdInput.addEventListener('input', () => {
   savePreferences();
 });
 autoCutoutInput.addEventListener('change', savePreferences);
+audioSensitivityInput.addEventListener('input', () => {
+  audioSensitivityValue.value = `${audioSensitivityInput.value}%`;
+  savePreferences();
+});
+audioBassInput.addEventListener('input', () => {
+  audioBassValue.value = `${audioBassInput.value}%`;
+  savePreferences();
+});
+audioStrengthInput.addEventListener('input', () => {
+  audioStrengthValue.value = `${audioStrengthInput.value}%`;
+  savePreferences();
+});
+audioReactiveInput.addEventListener('change', async () => {
+  if (!audioReactiveInput.checked) {
+    stopSystemAudio();
+    showToast('已关闭电脑音频震动');
+    return;
+  }
+  try {
+    await startSystemAudio();
+  } catch (error) {
+    console.error('Unable to start system audio:', error);
+    showToast('无法读取电脑音频，请重试');
+  }
+});
+audioTestButton.addEventListener('click', () => {
+  audioTestStartedAt = performance.now();
+  audioTestUntil = audioTestStartedAt + 1800;
+  audioTestBeatIndex = -1;
+  audioKick = 1;
+  showToast('正在测试音频震动');
+});
 
 spriteSizeInput.addEventListener('input', () => {
   spriteSizeValue.value = `${spriteSizeInput.value}%`;
@@ -1195,6 +1469,7 @@ window.addEventListener('drop', async event => {
   }
 });
 window.addEventListener('resize', resize);
+window.addEventListener('beforeunload', () => stopSystemAudio());
 
 resize();
 updateWindowSize();

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, screen, net, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, screen, net, globalShortcut, desktopCapturer, session } = require('electron');
 const path = require('path');
 const fs = require('fs/promises');
 
@@ -48,6 +48,25 @@ function setLocked(locked) {
   win.webContents.send('lock-state', Boolean(locked));
   if (locked) showUnlockWindow();
   else if (unlockWin && !unlockWin.isDestroyed()) unlockWin.close();
+}
+
+function registerSystemAudioCapture() {
+  session.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {
+    if (!request.audioRequested || !win || win.isDestroyed()) return callback({});
+    try {
+      const sources = await desktopCapturer.getSources({
+        types: ['screen'],
+        thumbnailSize: { width: 0, height: 0 }
+      });
+      const primaryDisplayId = String(screen.getPrimaryDisplay().id);
+      const source = sources.find(item => item.display_id === primaryDisplayId) || sources[0];
+      if (!source) return callback({});
+      callback({ video: source, audio: 'loopback' });
+    } catch (error) {
+      console.error('System audio capture failed:', error.message);
+      callback({});
+    }
+  });
 }
 
 function createWindow() {
@@ -280,6 +299,7 @@ app.on('before-quit', () => {
 });
 
 app.whenReady().then(() => {
+  registerSystemAudioCapture();
   createWindow();
   unlockShortcutReady = globalShortcut.register('CommandOrControl+Shift+L', () => {
     setLocked(false);

@@ -62,11 +62,33 @@
         <button data-size="360,460">中</button>
         <button data-size="460,600">大</button>
       </div>
+      <div class="panel-section-title">音频震动</div>
+      <label class="check audio-toggle">
+        <input id="audio-reactive" type="checkbox" />
+        <span>跟随电脑音频</span>
+      </label>
+      <div class="audio-status-row">
+        <span id="audio-status">尚未开启</span>
+        <progress id="audio-meter" max="1" value="0"></progress>
+      </div>
+      <label>
+        <span>音频灵敏度 <output id="audio-sensitivity-value">100%</output></span>
+        <input id="audio-sensitivity" type="range" min="30" max="220" value="100" />
+      </label>
+      <label>
+        <span>低音力度 <output id="audio-bass-value">100%</output></span>
+        <input id="audio-bass" type="range" min="0" max="200" value="100" />
+      </label>
+      <label>
+        <span>震动强度 <output id="audio-strength-value">100%</output></span>
+        <input id="audio-strength" type="range" min="0" max="200" value="100" />
+      </label>
+      <button id="audio-test" class="audio-test" type="button">测试震动</button>
       <label class="check">
         <input id="auto-cutout" type="checkbox" checked />
         <span>导入时自动抠图</span>
       </label>
-      <p>图片设置会在选中图片后单独出现；剪刀打开手动抠图编辑器。</p>
+      <p>音频只在本机实时分析，不会录制、保存或上传；每次启动需手动开启。</p>
     </section>
 
     <section id="scene-panel" class="scene-panel hidden">
