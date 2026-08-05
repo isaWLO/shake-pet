@@ -291,6 +291,40 @@ function audioWaveDisplayLevel(value) {
   return Math.pow(Math.min(1, Math.max(0, value)), 1.65);
 }
 
+function audioWaveHorizontalRange() {
+  return shapeSelect.value === 'bottle'
+    ? { left: innerWidth * .13, right: innerWidth * .87 }
+    : { left: 18, right: innerWidth - 18 };
+}
+
+function audioWaveSampleAtX(x, values = audioSpectrum) {
+  const { left, right } = audioWaveHorizontalRange();
+  const progress = Math.max(0, Math.min(1, (x - left) / Math.max(1, right - left)));
+  const offset = progress * (values.length - 1);
+  const first = Math.floor(offset);
+  const second = Math.min(values.length - 1, first + 1);
+  const mix = offset - first;
+  return values[first] * (1 - mix) + values[second] * mix;
+}
+
+function audioWaveMetricsAtX(x) {
+  const { left, right } = audioWaveHorizontalRange();
+  const spacing = (right - left) / Math.max(1, audioSpectrum.length - 1);
+  const level = audioWaveSampleAtX(x);
+  const rawRise = audioWaveSampleAtX(x, audioSpectrumRise);
+  const displayedLevel = audioWaveDisplayLevel(level);
+  const displayedRise = Math.max(0, displayedLevel - audioWaveDisplayLevel(level - rawRise));
+  const baseline = innerHeight - (shapeSelect.value === 'bottle' ? 31 : 36);
+  const maximumHeight = audioWaveMaximumHeight(baseline);
+  return {
+    level,
+    displayedLevel,
+    risePixels: displayedRise * maximumHeight,
+    slope: audioWaveSampleAtX(x + spacing) - audioWaveSampleAtX(x - spacing),
+    y: baseline - displayedLevel * maximumHeight
+  };
+}
+
 function drawAudioWaveform() {
   let peak = 0;
   for (const value of audioSpectrum) peak = Math.max(peak, value);
@@ -298,8 +332,7 @@ function drawAudioWaveform() {
 
   const path = containerPath(shapeSelect.value, innerWidth, innerHeight);
   const rgb = hexToRgb(colorInput.value);
-  const left = shapeSelect.value === 'bottle' ? innerWidth * .13 : 18;
-  const right = shapeSelect.value === 'bottle' ? innerWidth * .87 : innerWidth - 18;
+  const { left, right } = audioWaveHorizontalRange();
   const baseline = innerHeight - (shapeSelect.value === 'bottle' ? 31 : 36);
   const maximumHeight = audioWaveMaximumHeight(baseline);
 
@@ -405,17 +438,13 @@ function applyAudioReactiveMotion(now) {
       audioKick = Math.max(audioKick, .65 + audioLevels.bass * .95);
       const launchSpeed = Math.min(18, (6 + audioLevels.bass * 8 + audioLevels.volume * 4) * bassStrength * strength);
       for (const body of bodies) {
-        const index = Math.max(0, Math.min(audioSpectrum.length - 1, Math.round(body.position.x / Math.max(1, innerWidth) * (audioSpectrum.length - 1))));
-        const localLevel = audioSpectrum[index];
-        const leftLevel = audioSpectrum[Math.max(0, index - 1)];
-        const rightLevel = audioSpectrum[Math.min(audioSpectrum.length - 1, index + 1)];
-        const slope = rightLevel - leftLevel;
-        const localLaunch = launchSpeed * (.82 + localLevel * .36);
+        const wave = audioWaveMetricsAtX(body.position.x);
+        const localLaunch = launchSpeed * (.82 + wave.level * .36);
         Body.setVelocity(body, {
-          x: Math.max(-18, Math.min(18, body.velocity.x * .78 + slope * localLaunch * .55)),
+          x: Math.max(-18, Math.min(18, body.velocity.x * .78 + wave.slope * localLaunch * .55)),
           y: Math.max(-18, Math.min(18, Math.min(0, body.velocity.y) - localLaunch))
         });
-        Body.setAngularVelocity(body, Math.max(-.18, Math.min(.18, body.angularVelocity * .82 + slope * localLaunch * .055)));
+        Body.setAngularVelocity(body, Math.max(-.18, Math.min(.18, body.angularVelocity * .82 + wave.slope * localLaunch * .055)));
         body.plugin = body.plugin || {};
         body.plugin.audioWaveLiftAt = now;
       }
@@ -426,7 +455,9 @@ function applyAudioReactiveMotion(now) {
   const amplitude = Math.min(6, (activity * 3.1 + audioKick * 3.2) * strength);
   let leftEnergy = 0;
   let rightEnergy = 0;
+  let spectrumPeak = 0;
   for (let index = 0; index < audioSpectrum.length; index++) {
+    spectrumPeak = Math.max(spectrumPeak, audioSpectrum[index]);
     if (index < audioSpectrum.length / 2) leftEnergy += audioSpectrum[index];
     else rightEnergy += audioSpectrum[index];
   }
@@ -436,28 +467,24 @@ function applyAudioReactiveMotion(now) {
   audioVisualOffset.x += (targetX - audioVisualOffset.x) * .48;
   audioVisualOffset.y += (targetY - audioVisualOffset.y) * .48;
 
-  if (activity > .008 || audioKick > .01) {
+  if (activity > .008 || audioKick > .01 || spectrumPeak > .012) {
     for (const body of bodies) {
-      const index = Math.max(0, Math.min(audioSpectrum.length - 1, Math.round(body.position.x / Math.max(1, innerWidth) * (audioSpectrum.length - 1))));
-      const localLevel = audioSpectrum[index];
-      const localRise = audioSpectrumRise[index];
-      const leftLevel = audioSpectrum[Math.max(0, index - 1)];
-      const rightLevel = audioSpectrum[Math.min(audioSpectrum.length - 1, index + 1)];
-      const slope = rightLevel - leftLevel;
+      const wave = audioWaveMetricsAtX(body.position.x);
+      const contact = Math.max(0, Math.min(1, (body.bounds.max.y + 10 - wave.y) / 26));
       body.plugin = body.plugin || {};
-      if (localRise > .028 && now - (body.plugin.audioWaveLiftAt || 0) > 125) {
-        const waveLift = Math.min(12, (localRise * 34 + localLevel * 3.2) * bassStrength * strength);
+      if (wave.risePixels > .35 && contact > 0 && now - (body.plugin.audioWaveLiftAt || 0) > 82) {
+        const waveLift = Math.min(12, (1.1 + wave.risePixels * .28 + wave.displayedLevel * 3) * (.35 + contact * .65) * bassStrength * strength);
         if (waveLift > .8) {
           Body.setVelocity(body, {
-            x: Math.max(-18, Math.min(18, body.velocity.x * .88 + slope * waveLift * .35)),
+            x: Math.max(-18, Math.min(18, body.velocity.x * .88 + wave.slope * waveLift * .35)),
             y: Math.max(-18, Math.min(18, Math.min(0, body.velocity.y) - waveLift))
           });
           body.plugin.audioWaveLiftAt = now;
         }
       }
       Body.applyForce(body, body.position, {
-        x: slope * activity * strength * .00048 * body.mass,
-        y: -(localLevel * .58 + audioLevels.bass * .42) * bassStrength * strength * .00030 * body.mass
+        x: wave.slope * activity * strength * .00048 * body.mass,
+        y: -(wave.displayedLevel * .70 + audioLevels.bass * .30) * bassStrength * strength * .00030 * body.mass
       });
     }
   }
