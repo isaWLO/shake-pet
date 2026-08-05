@@ -58,6 +58,7 @@ let spriteDragLast = null;
 let spriteDragVelocity = { x: 0, y: 0 };
 let spriteDragStart = null;
 let spriteDragMoved = false;
+let viewportSize = null;
 
 const preferences = JSON.parse(localStorage.getItem('shake-pet-preferences') || '{}');
 shapeSelect.value = ['bottle', 'box'].includes(preferences.shape) ? preferences.shape : 'bottle';
@@ -107,16 +108,17 @@ function addWall(x1, y1, x2, y2, thickness = 26) {
   walls.push(wall);
 }
 
+function containerWallPoints(width, height) {
+  if (shapeSelect.value === 'bottle') {
+    return [[width*.30,8],[width*.70,8],[width*.70,66],[width-25,138],[width-13,height-48],[width-34,height-13],[34,height-13],[13,height-48],[25,138],[width*.30,66]];
+  }
+  return [[10,14],[width-10,14],[width-10,height-18],[10,height-18]];
+}
+
 function buildWalls(width, height) {
   for (const wall of walls) Composite.remove(engine.world, wall);
   walls = [];
-  const shape = shapeSelect.value;
-  let points;
-  if (shape === 'bottle') {
-    points = [[width*.30,8],[width*.70,8],[width*.70,66],[width-25,138],[width-13,height-48],[width-34,height-13],[34,height-13],[13,height-48],[25,138],[width*.30,66]];
-  } else {
-    points = [[10,14],[width-10,14],[width-10,height-18],[10,height-18]];
-  }
+  const points = containerWallPoints(width, height);
   for (let index = 0; index < points.length; index++) {
     const current = points[index];
     const next = points[(index + 1) % points.length];
@@ -125,14 +127,92 @@ function buildWalls(width, height) {
   Composite.add(engine.world, walls);
 }
 
+function horizontalContainerBounds(y, width, height) {
+  const points = containerWallPoints(width, height);
+  const intersections = [];
+  for (let index = 0; index < points.length; index++) {
+    const [x1, y1] = points[index];
+    const [x2, y2] = points[(index + 1) % points.length];
+    if (Math.abs(y2 - y1) < .001 || y < Math.min(y1, y2) || y > Math.max(y1, y2)) continue;
+    const progress = (y - y1) / (y2 - y1);
+    intersections.push(x1 + (x2 - x1) * progress);
+  }
+  if (intersections.length < 2) return null;
+  return { left: Math.min(...intersections), right: Math.max(...intersections) };
+}
+
+function horizontalCorrection(body, width, height, yOffset) {
+  const wallClearance = 12;
+  let minimum = -Infinity;
+  let maximum = Infinity;
+  for (const vertex of body.vertices) {
+    const bounds = horizontalContainerBounds(vertex.y + yOffset, width, height);
+    if (!bounds) return null;
+    minimum = Math.max(minimum, bounds.left + wallClearance - vertex.x);
+    maximum = Math.min(maximum, bounds.right - wallClearance - vertex.x);
+  }
+  if (minimum > maximum) return null;
+  return Math.max(minimum, Math.min(maximum, 0));
+}
+
+function keepBodyInside(body, width, height) {
+  const points = containerWallPoints(width, height);
+  const wallClearance = 12;
+  const top = Math.min(...points.map(point => point[1])) + wallClearance;
+  const bottom = Math.max(...points.map(point => point[1])) - wallClearance;
+  const topExtent = body.position.y - body.bounds.min.y;
+  const bottomExtent = body.bounds.max.y - body.position.y;
+  const targetY = Math.max(top + topExtent, Math.min(bottom - bottomExtent, body.position.y));
+  const initialYOffset = targetY - body.position.y;
+  const availableDrop = Math.max(0, bottom - (body.bounds.max.y + initialYOffset));
+  let yOffset = initialYOffset;
+  let xOffset = horizontalCorrection(body, width, height, yOffset);
+
+  // A wide picture cannot stay in a narrow bottle neck. Move it down only as
+  // far as needed to reach a section that can contain its complete outline.
+  for (let extra = 4; xOffset === null && extra < availableDrop; extra += 4) {
+    yOffset = initialYOffset + extra;
+    xOffset = horizontalCorrection(body, width, height, yOffset);
+  }
+  if (xOffset === null && availableDrop > 0) {
+    yOffset = initialYOffset + availableDrop;
+    xOffset = horizontalCorrection(body, width, height, yOffset);
+  }
+  if (xOffset === null) {
+    xOffset = width / 2 - body.position.x;
+  }
+
+  if (Math.abs(xOffset) > .01 || Math.abs(yOffset) > .01) {
+    Body.setPosition(body, { x: body.position.x + xOffset, y: body.position.y + yOffset });
+    Body.setVelocity(body, { x: body.velocity.x * .25, y: Math.min(2, body.velocity.y * .25) });
+  }
+}
+
+function fitSpritesToContainer(width, height, previousSize = null) {
+  for (const body of Composite.allBodies(engine.world)) {
+    if (!sprites.has(body.id)) continue;
+    if (previousSize?.width > 0 && previousSize?.height > 0) {
+      Body.setPosition(body, {
+        x: body.position.x * width / previousSize.width,
+        y: body.position.y * height / previousSize.height
+      });
+    }
+    keepBodyInside(body, width, height);
+  }
+}
+
 function resize() {
+  const width = innerWidth;
+  const height = innerHeight;
   const dpr = devicePixelRatio || 1;
-  canvas.width = Math.round(innerWidth * dpr);
-  canvas.height = Math.round(innerHeight * dpr);
-  canvas.style.width = `${innerWidth}px`;
-  canvas.style.height = `${innerHeight}px`;
+  canvas.width = Math.round(width * dpr);
+  canvas.height = Math.round(height * dpr);
+  canvas.style.width = `${width}px`;
+  canvas.style.height = `${height}px`;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  buildWalls(innerWidth, innerHeight);
+  fitSpritesToContainer(width, height, viewportSize);
+  buildWalls(width, height);
+  viewportSize = { width, height };
 }
 
 function hexToRgb(hex) {
@@ -938,6 +1018,7 @@ document.querySelector('#gravity').addEventListener('click', (event) => {
 
 shapeSelect.addEventListener('change', () => {
   toy.dataset.shape = shapeSelect.value;
+  fitSpritesToContainer(innerWidth, innerHeight);
   buildWalls(innerWidth, innerHeight);
   savePreferences();
 });
