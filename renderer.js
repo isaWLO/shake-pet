@@ -84,12 +84,13 @@ let audioLastBeatAt = 0;
 let audioLastLaunchAt = 0;
 let audioBeatPending = false;
 let audioKick = 0;
-let audioShakePhase = 0;
 let audioVisualOffset = { x: 0, y: 0 };
 let audioTestUntil = 0;
 let audioTestStartedAt = 0;
 let audioTestBeatIndex = -1;
 const audioLevels = { volume: 0, bass: 0, mid: 0, high: 0 };
+const audioSpectrum = new Float32Array(36);
+const audioSpectrumRise = new Float32Array(audioSpectrum.length);
 
 const preferences = JSON.parse(localStorage.getItem('shake-pet-preferences') || '{}');
 shapeSelect.value = ['bottle', 'box'].includes(preferences.shape) ? preferences.shape : 'bottle';
@@ -241,6 +242,85 @@ function approachAudioLevel(current, target) {
   return current + (target - current) * (target > current ? .46 : .14);
 }
 
+function updateAudioSpectrum(targetForIndex) {
+  for (let index = 0; index < audioSpectrum.length; index++) {
+    const current = audioSpectrum[index];
+    const target = Math.max(0, Math.min(1, targetForIndex(index)));
+    const next = current + (target - current) * (target > current ? .42 : .12);
+    audioSpectrumRise[index] = Math.max(0, next - current);
+    audioSpectrum[index] = next;
+  }
+}
+
+function updateSpectrumFromFrequencyData(sensitivity) {
+  const nyquist = audioContext.sampleRate / 2;
+  updateAudioSpectrum(index => {
+    const progress = index / Math.max(1, audioSpectrum.length - 1);
+    const frequency = 35 * Math.pow(9000 / 35, progress);
+    const center = Math.max(0, Math.min(audioFrequencyData.length - 1, Math.round(frequency / nyquist * audioFrequencyData.length)));
+    let total = 0;
+    let samples = 0;
+    for (let offset = -1; offset <= 1; offset++) {
+      const bin = center + offset;
+      if (bin < 0 || bin >= audioFrequencyData.length) continue;
+      total += audioFrequencyData[bin];
+      samples++;
+    }
+    return total / Math.max(1, samples) / 255 * sensitivity * 1.65;
+  });
+}
+
+function updateTestSpectrum(elapsed, pulse) {
+  updateAudioSpectrum(index => {
+    const wave = .34 + Math.pow((Math.sin(index * .43 + elapsed * .006) + 1) / 2, 1.5) * .66;
+    return (.12 + pulse * .88) * wave;
+  });
+}
+
+function drawAudioWaveform() {
+  let peak = 0;
+  for (const value of audioSpectrum) peak = Math.max(peak, value);
+  if (peak < .012) return;
+
+  const path = containerPath(shapeSelect.value, innerWidth, innerHeight);
+  const rgb = hexToRgb(colorInput.value);
+  const left = shapeSelect.value === 'bottle' ? innerWidth * .13 : 18;
+  const right = shapeSelect.value === 'bottle' ? innerWidth * .87 : innerWidth - 18;
+  const baseline = innerHeight - (shapeSelect.value === 'bottle' ? 31 : 36);
+  const maximumHeight = Math.min(92, innerHeight * .24) * Math.max(.35, Number(audioStrengthInput.value) / 100);
+
+  ctx.save();
+  ctx.clip(path);
+  ctx.beginPath();
+  ctx.moveTo(left, baseline);
+  for (let index = 0; index < audioSpectrum.length; index++) {
+    const x = left + (right - left) * index / (audioSpectrum.length - 1);
+    const y = baseline - audioSpectrum[index] * maximumHeight;
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(right, baseline);
+  ctx.closePath();
+  const fill = ctx.createLinearGradient(0, baseline - maximumHeight, 0, baseline);
+  fill.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},.24)`);
+  fill.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},.03)`);
+  ctx.fillStyle = fill;
+  ctx.fill();
+
+  ctx.beginPath();
+  for (let index = 0; index < audioSpectrum.length; index++) {
+    const x = left + (right - left) * index / (audioSpectrum.length - 1);
+    const y = baseline - audioSpectrum[index] * maximumHeight;
+    if (index === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = `rgba(${Math.min(255, rgb.r + 70)},${Math.min(255, rgb.g + 70)},${Math.min(255, rgb.b + 70)},.65)`;
+  ctx.shadowColor = ctx.strokeStyle;
+  ctx.shadowBlur = 8;
+  ctx.stroke();
+  ctx.restore();
+}
+
 function analyzeAudio(now) {
   let volume = 0;
   let bass = 0;
@@ -257,6 +337,7 @@ function analyzeAudio(now) {
     bass = .18 + pulse * .82;
     mid = .22 + pulse * .25;
     high = .10 + pulse * .16;
+    updateTestSpectrum(elapsed, pulse);
     if (beatIndex !== audioTestBeatIndex) {
       audioTestBeatIndex = beatIndex;
       audioBeatPending = true;
@@ -276,6 +357,7 @@ function analyzeAudio(now) {
     bass = Math.max(0, Math.min(1, (frequencyBandLevel(20, 180) - .025) * sensitivity * 2.15));
     mid = Math.max(0, Math.min(1, (frequencyBandLevel(180, 2200) - .018) * sensitivity * 2.0));
     high = Math.max(0, Math.min(1, (frequencyBandLevel(2200, 9000) - .012) * sensitivity * 2.2));
+    updateSpectrumFromFrequencyData(sensitivity);
 
     audioBassBaseline = audioBassBaseline * .965 + bass * .035;
     if (bass > .13 && bass > audioBassBaseline * 1.48 && now - audioLastBeatAt > 130) {
@@ -284,6 +366,7 @@ function analyzeAudio(now) {
     }
     setAudioStatus(volume + bass > .035 ? '正在响应' : '正在监听', 'active');
   } else {
+    updateAudioSpectrum(() => 0);
     if (!audioStatusRow.classList.contains('error')) setAudioStatus('尚未开启');
   }
 
@@ -301,11 +384,6 @@ function applyAudioReactiveMotion(now) {
   audioKick *= .86;
 
   const bodies = Composite.allBodies(engine.world).filter(body => sprites.has(body.id) && !body.isStatic);
-  const pulseEnergy = audioLevels.bass * .72 + audioLevels.volume * .28;
-  const launchInterval = Math.max(150, 390 - pulseEnergy * 250);
-  if (!audioBeatPending && pulseEnergy > .18 && now - audioLastLaunchAt > launchInterval) {
-    audioBeatPending = true;
-  }
   if (audioBeatPending) {
     audioBeatPending = false;
     if (now - audioLastLaunchAt > 110) {
@@ -313,33 +391,59 @@ function applyAudioReactiveMotion(now) {
       audioKick = Math.max(audioKick, .65 + audioLevels.bass * .95);
       const launchSpeed = Math.min(18, (6 + audioLevels.bass * 8 + audioLevels.volume * 4) * bassStrength * strength);
       for (const body of bodies) {
-        const direction = Math.sin(body.id * 12.9898 + now * .004);
-        const variation = .88 + (body.id % 7) * .025;
+        const index = Math.max(0, Math.min(audioSpectrum.length - 1, Math.round(body.position.x / Math.max(1, innerWidth) * (audioSpectrum.length - 1))));
+        const localLevel = audioSpectrum[index];
+        const leftLevel = audioSpectrum[Math.max(0, index - 1)];
+        const rightLevel = audioSpectrum[Math.min(audioSpectrum.length - 1, index + 1)];
+        const slope = rightLevel - leftLevel;
+        const localLaunch = launchSpeed * (.82 + localLevel * .36);
         Body.setVelocity(body, {
-          x: Math.max(-18, Math.min(18, body.velocity.x + direction * launchSpeed * .42)),
-          y: Math.max(-18, Math.min(18, Math.min(0, body.velocity.y) - launchSpeed * variation))
+          x: Math.max(-18, Math.min(18, body.velocity.x * .78 + slope * localLaunch * .55)),
+          y: Math.max(-18, Math.min(18, Math.min(0, body.velocity.y) - localLaunch))
         });
-        Body.setAngularVelocity(body, Math.max(-.18, Math.min(.18, body.angularVelocity + direction * launchSpeed * .025)));
+        Body.setAngularVelocity(body, Math.max(-.18, Math.min(.18, body.angularVelocity * .82 + slope * localLaunch * .055)));
+        body.plugin = body.plugin || {};
+        body.plugin.audioWaveLiftAt = now;
       }
     }
   }
 
-  audioShakePhase += .35 + audioLevels.high * 1.4;
   const activity = audioLevels.volume * .7 + audioLevels.mid * .25 + audioLevels.high * .12;
   const amplitude = Math.min(6, (activity * 3.1 + audioKick * 3.2) * strength);
-  const targetX = Math.sin(audioShakePhase * 1.7) * amplitude;
-  const targetY = Math.cos(audioShakePhase * 2.2) * amplitude * .28 - audioKick * strength * 1.5;
+  let leftEnergy = 0;
+  let rightEnergy = 0;
+  for (let index = 0; index < audioSpectrum.length; index++) {
+    if (index < audioSpectrum.length / 2) leftEnergy += audioSpectrum[index];
+    else rightEnergy += audioSpectrum[index];
+  }
+  const balance = (rightEnergy - leftEnergy) / Math.max(1, audioSpectrum.length / 2);
+  const targetX = balance * amplitude * 1.5;
+  const targetY = -(audioLevels.bass * .65 + audioKick) * strength * 2.1;
   audioVisualOffset.x += (targetX - audioVisualOffset.x) * .48;
   audioVisualOffset.y += (targetY - audioVisualOffset.y) * .48;
 
   if (activity > .008 || audioKick > .01) {
-    const jitter = (audioLevels.mid * .52 + audioLevels.high * .34 + audioLevels.volume * .12) * strength;
-    const liftForce = audioLevels.bass * bassStrength * strength;
     for (const body of bodies) {
-      const direction = Math.sin(audioShakePhase + body.id * 1.91);
+      const index = Math.max(0, Math.min(audioSpectrum.length - 1, Math.round(body.position.x / Math.max(1, innerWidth) * (audioSpectrum.length - 1))));
+      const localLevel = audioSpectrum[index];
+      const localRise = audioSpectrumRise[index];
+      const leftLevel = audioSpectrum[Math.max(0, index - 1)];
+      const rightLevel = audioSpectrum[Math.min(audioSpectrum.length - 1, index + 1)];
+      const slope = rightLevel - leftLevel;
+      body.plugin = body.plugin || {};
+      if (localRise > .028 && now - (body.plugin.audioWaveLiftAt || 0) > 125) {
+        const waveLift = Math.min(12, (localRise * 34 + localLevel * 3.2) * bassStrength * strength);
+        if (waveLift > .8) {
+          Body.setVelocity(body, {
+            x: Math.max(-18, Math.min(18, body.velocity.x * .88 + slope * waveLift * .35)),
+            y: Math.max(-18, Math.min(18, Math.min(0, body.velocity.y) - waveLift))
+          });
+          body.plugin.audioWaveLiftAt = now;
+        }
+      }
       Body.applyForce(body, body.position, {
-        x: direction * jitter * .00034 * body.mass,
-        y: -liftForce * .00034 * body.mass
+        x: slope * activity * strength * .00048 * body.mass,
+        y: -(localLevel * .58 + audioLevels.bass * .42) * bassStrength * strength * .00030 * body.mass
       });
     }
   }
@@ -1136,6 +1240,7 @@ function tick() {
   ctx.save();
   ctx.translate(audioVisualOffset.x, audioVisualOffset.y);
   drawContainer();
+  drawAudioWaveform();
   for (const body of Composite.allBodies(engine.world)) {
     const sprite = sprites.get(body.id);
     if (!sprite) continue;
