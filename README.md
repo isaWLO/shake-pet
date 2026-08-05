@@ -6,15 +6,23 @@
 
 ## 效果预览
 
-![摇摇乐演示区域](docs/media/preview-placeholder.svg)
+### 晃动和碰撞
 
-这里已经为演示 GIF 和截图预留好了位置。素材请放进 [`docs/media/`](docs/media/README.md)：
+<p align="center">
+  <img src="docs/media/demo.gif" width="760" alt="拖动摇摇乐时，容器中的图片随重力碰撞和旋转">
+</p>
 
-- 主演示：`docs/media/demo.gif`
-- 主界面截图：`docs/media/main-window.png`
-- 手动抠图截图：`docs/media/cutout-editor.png`
+### 添加自己的图片
 
-录好 GIF 后，把上面的图片地址从 `preview-placeholder.svg` 改成 `demo.gif` 即可。完整替换步骤写在 [媒体素材说明](docs/media/README.md) 中。
+<p align="center">
+  <img src="docs/media/adding.gif" width="700" alt="向摇摇乐中添加自定义图片">
+</p>
+
+### 手动抠图
+
+<p align="center">
+  <img src="docs/media/cutout-editor.png" width="420" alt="使用擦除、恢复和自动重抠工具修整图片">
+</p>
 
 ## 它能做什么
 
