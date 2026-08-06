@@ -47,6 +47,8 @@ const audioStatusRow = document.querySelector('.audio-status-row');
 const audioMeter = document.querySelector('#audio-meter');
 const audioTestButton = document.querySelector('#audio-test');
 
+document.documentElement.dataset.platform = window.desktopPet.platform || 'desktop';
+
 const engine = Engine.create({ gravity: { x: 0, y: 1, scale: 0.0015 } });
 engine.positionIterations = 12;
 engine.velocityIterations = 8;
@@ -173,10 +175,20 @@ async function startSystemAudio() {
     let stream;
     let context;
     try {
-      stream = await navigator.mediaDevices.getDisplayMedia({
-        audio: true,
-        video: { width: 1, height: 1, frameRate: 1 }
-      });
+      let captureLabel = '系统音频';
+      try {
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          audio: true,
+          video: { width: 1, height: 1, frameRate: 1 }
+        });
+      } catch (displayError) {
+        if (window.desktopPet.platform === 'win32') throw displayError;
+      }
+      if (!stream?.getAudioTracks().length && window.desktopPet.platform !== 'win32') {
+        if (stream) for (const track of stream.getTracks()) track.stop();
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        captureLabel = '麦克风';
+      }
       if (generation !== audioCaptureGeneration) {
         for (const track of stream.getTracks()) track.stop();
         return;
@@ -210,8 +222,8 @@ async function startSystemAudio() {
         if (audioStream === stream) stopSystemAudio('音频捕获已停止');
       }, { once: true });
       audioReactiveInput.checked = true;
-      setAudioStatus('正在监听', 'active');
-      showToast('已开启电脑音频震动');
+      setAudioStatus(`正在监听${captureLabel}`, 'active');
+      showToast(captureLabel === '系统音频' ? '已开启电脑音频震动' : '系统音频不可用，已改用麦克风');
     } catch (error) {
       if (stream) for (const track of stream.getTracks()) track.stop();
       if (context && context.state !== 'closed') await context.close().catch(() => {});

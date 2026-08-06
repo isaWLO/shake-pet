@@ -88,7 +88,7 @@
         <input id="auto-cutout" type="checkbox" checked />
         <span>导入时自动抠图</span>
       </label>
-      <p>音频只在本机实时分析，不会录制、保存或上传；每次启动需手动开启。</p>
+      <p>音频只在本机实时分析，不会录制、保存或上传；macOS 或网页无法取得系统音轨时会改用麦克风。</p>
     </section>
 
     <section id="scene-panel" class="scene-panel hidden">
@@ -151,6 +151,7 @@
     </div>
     <div id="toast" class="hidden"></div>
   </main>
+  <script src="web-bridge.js"></script>
   <script src="node_modules/matter-js/build/matter.min.js"></script>
   <script src="renderer.js"></script>
 </body>

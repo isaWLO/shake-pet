@@ -1,6 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('desktopPet', {
+  platform: process.platform,
+  isDesktop: true,
   pickImages: () => ipcRenderer.invoke('pick-images'),
   close: () => ipcRenderer.send('close-window'),
   setWindowSize: (width, height) => ipcRenderer.send('set-window-size', { width, height }),

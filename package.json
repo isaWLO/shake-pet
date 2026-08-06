@@ -1,14 +1,52 @@
 {
   "name": "shake-pet",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "A transparent Windows desktop shake-toy widget",
+  "author": "isaWLO",
+  "description": "A transparent desktop and web shake-toy widget",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "web": "node scripts/serve-web.js",
+    "build:web": "node scripts/build-web.js",
+    "dist:mac": "electron-builder --mac dmg"
   },
   "dependencies": {
-    "electron": "^37.2.3",
     "matter-js": "^0.20.0"
+  },
+  "devDependencies": {
+    "electron": "^37.2.3",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.isawlo.shakepet",
+    "productName": "Shake Pet",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer.js",
+      "web-bridge.js",
+      "index.html",
+      "unlock.html",
+      "styles.css",
+      "package.json",
+      "node_modules/matter-js/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.entertainment",
+      "target": ["dmg"],
+      "extendInfo": {
+        "NSAudioCaptureUsageDescription": "Shake Pet analyzes system audio locally to animate your pictures.",
+        "NSMicrophoneUsageDescription": "Shake Pet can use microphone audio when system audio capture is unavailable.",
+        "NSScreenCaptureUsageDescription": "Shake Pet needs screen capture permission only to access shared system audio."
+      }
+    },
+    "dmg": {
+      "artifactName": "Shake-Pet-${version}-${arch}.${ext}"
+    }
   }
 }

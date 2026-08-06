@@ -3,6 +3,7 @@ node_modules/
 .electron-cache/
 *.log
 dist/
+dist-web/
 release/
 out/
 .DS_Store

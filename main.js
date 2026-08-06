@@ -52,7 +52,7 @@ function setLocked(locked) {
 
 function registerSystemAudioCapture() {
   session.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {
-    if (!request.audioRequested || !win || win.isDestroyed()) return callback({});
+    if (!win || win.isDestroyed()) return callback({});
     try {
       const sources = await desktopCapturer.getSources({
         types: ['screen'],
@@ -61,12 +61,15 @@ function registerSystemAudioCapture() {
       const primaryDisplayId = String(screen.getPrimaryDisplay().id);
       const source = sources.find(item => item.display_id === primaryDisplayId) || sources[0];
       if (!source) return callback({});
-      callback({ video: source, audio: 'loopback' });
+      callback({
+        video: source,
+        ...(process.platform === 'win32' && request.audioRequested ? { audio: 'loopback' } : {})
+      });
     } catch (error) {
       console.error('System audio capture failed:', error.message);
       callback({});
     }
-  });
+  }, { useSystemPicker: process.platform === 'darwin' });
 }
 
 function createWindow() {
@@ -127,7 +130,10 @@ ipcMain.handle('pick-images', async () => {
   }));
 });
 
-ipcMain.on('close-window', () => win?.close());
+ipcMain.on('close-window', () => {
+  if (process.platform === 'darwin') app.quit();
+  else win?.close();
+});
 ipcMain.on('set-click-through', (_event, locked) => setLocked(Boolean(locked)));
 ipcMain.on('unlock-window', () => setLocked(false));
 function sceneLibraryPath() {
@@ -306,5 +312,10 @@ app.whenReady().then(() => {
     win?.show();
   });
 });
-app.on('window-all-closed', () => app.quit());
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});
+app.on('activate', () => {
+  if (!win || win.isDestroyed()) createWindow();
+});
 app.on('will-quit', () => globalShortcut.unregisterAll());

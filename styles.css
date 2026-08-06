@@ -13,6 +13,21 @@ html, body {
   user-select: none;
 }
 
+html[data-platform="web"] {
+  background: radial-gradient(circle at 50% 35%, #26324a 0, #111722 52%, #090c13 100%);
+}
+
+html[data-platform="web"] #close,
+html[data-platform="web"] #lock {
+  display: none;
+}
+
+html[data-platform="web"] label:has(#window-width),
+html[data-platform="web"] label:has(#window-height),
+html[data-platform="web"] .size-presets {
+  display: none;
+}
+
 #toy {
   position: relative;
   width: 100%;
