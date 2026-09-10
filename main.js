@@ -1,10 +1,15 @@
 const { app, BrowserWindow, ipcMain, dialog, screen, net, globalShortcut, desktopCapturer, session } = require('electron');
 const path = require('path');
 const fs = require('fs/promises');
+const { selectionToPixels, withTimeout } = require('./capture-region');
+const { ensureAiModel } = require('./ai-model');
 
 let win;
 let unlockWin = null;
 let unlockShortcutReady = false;
+let captureWin = null;
+let captureResolve = null;
+let captureImage = null;
 
 function positionUnlockWindow() {
   if (!win || win.isDestroyed() || !unlockWin || unlockWin.isDestroyed()) return;
@@ -130,6 +135,90 @@ ipcMain.handle('pick-images', async () => {
   }));
 });
 
+function finishCapture(result) {
+  const resolve = captureResolve;
+  captureResolve = null;
+  captureImage = null;
+  const windowToClose = captureWin;
+  captureWin = null;
+  if (windowToClose && !windowToClose.isDestroyed()) windowToClose.close();
+  if (win && !win.isDestroyed()) {
+    win.show();
+    win.setAlwaysOnTop(true, 'floating');
+  }
+  resolve?.(result);
+}
+
+ipcMain.handle('capture-screen', async () => {
+  if (!win || win.isDestroyed() || captureResolve) return null;
+  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  win.hide();
+  await new Promise(resolve => setTimeout(resolve, 140));
+  try {
+    const scale = display.scaleFactor || 1;
+    const sources = await withTimeout(desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: {
+        width: Math.round(display.size.width * scale),
+        height: Math.round(display.size.height * scale)
+      }
+    }), 6000, '读取屏幕超时，请重试');
+    const source = sources.find(item => item.display_id === String(display.id)) || sources[0];
+    if (!source || source.thumbnail.isEmpty()) throw new Error('无法读取当前屏幕');
+    captureImage = source.thumbnail;
+    const result = new Promise(resolve => { captureResolve = resolve; });
+    captureWin = new BrowserWindow({
+      ...display.bounds,
+      show: false,
+      frame: false,
+      resizable: false,
+      movable: false,
+      alwaysOnTop: true,
+      skipTaskbar: true,
+      backgroundColor: '#000000',
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.js'),
+        contextIsolation: true,
+        nodeIntegration: false
+      }
+    });
+    captureWin.setAlwaysOnTop(true, 'screen-saver');
+    captureWin.on('closed', () => {
+      captureWin = null;
+      if (captureResolve) finishCapture(null);
+    });
+    await captureWin.loadFile('capture.html');
+    captureWin.show();
+    captureWin.moveTop();
+    await captureWin.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(resolve))');
+    const preview = `data:image/jpeg;base64,${captureImage.toJPEG(82).toString('base64')}`;
+    captureWin.webContents.send('capture-source', preview);
+    return await result;
+  } catch (error) {
+    finishCapture(null);
+    throw error;
+  }
+});
+
+ipcMain.on('capture-selection', (event, selection) => {
+  if (!captureWin || event.sender !== captureWin.webContents || !captureImage) return;
+  const imageSize = captureImage.getSize();
+  const rect = selectionToPixels(
+    selection.start,
+    selection.end,
+    selection.viewportWidth,
+    selection.viewportHeight,
+    imageSize.width,
+    imageSize.height
+  );
+  if (rect.width < 2 || rect.height < 2) return;
+  finishCapture({ name: `截图-${Date.now()}.png`, dataUrl: captureImage.crop(rect).toDataURL() });
+});
+
+ipcMain.on('capture-cancel', event => {
+  if (captureWin && event.sender === captureWin.webContents) finishCapture(null);
+});
+
 ipcMain.on('close-window', () => {
   if (process.platform === 'darwin') app.quit();
   else win?.close();
@@ -241,6 +330,11 @@ ipcMain.handle('load-image-url', async (_event, sourceUrl) => {
   return { name, dataUrl: `data:${mime};base64,${buffer.toString('base64')}` };
 });
 
+ipcMain.handle('get-ai-cutout-model', () => ensureAiModel(
+  path.join(app.getPath('userData'), 'models'),
+  url => net.fetch(url)
+));
+
 let dragTimer = null;
 function stopWindowDrag() {
   if (dragTimer) clearInterval(dragTimer);
@@ -300,6 +394,8 @@ ipcMain.on('end-window-drag', () => {
 });
 
 app.on('before-quit', () => {
+  captureResolve = null;
+  if (captureWin && !captureWin.isDestroyed()) captureWin.close();
   stopWindowDrag();
   stopResizeAnimation();
 });
