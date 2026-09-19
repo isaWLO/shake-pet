@@ -303,5 +303,20 @@
     return definition.polygon.map(([x, y]) => [x * width, y * height]);
   }
 
-  return { floodSelect, paintCircle, cleanMask, buildContainerDefinition, pointInPolygon, wallPoints };
+  function normalizeDefinition(value) {
+    if (!value || typeof value.skinDataUrl !== 'string' || !/^data:image\/(png|jpe?g|webp);base64,/i.test(value.skinDataUrl)) return null;
+    if (!Array.isArray(value.polygon) || value.polygon.length < 3 || value.polygon.length > 128) return null;
+    const polygon = value.polygon.map(point => Array.isArray(point) ? point.map(Number) : []);
+    if (polygon.some(point => point.length !== 2 || point.some(number => !Number.isFinite(number) || number < 0 || number > 1))) return null;
+    const spawn = Array.isArray(value.spawn) ? value.spawn.map(Number) : [];
+    if (spawn.length !== 2 || spawn.some(number => !Number.isFinite(number) || number < 0 || number > 1) || !pointInPolygon(spawn, polygon)) return null;
+    return {
+      name: String(value.name || '自定义容器').trim().slice(0, 30) || '自定义容器',
+      skinDataUrl: value.skinDataUrl,
+      polygon,
+      spawn
+    };
+  }
+
+  return { floodSelect, paintCircle, cleanMask, buildContainerDefinition, pointInPolygon, wallPoints, normalizeDefinition };
 });

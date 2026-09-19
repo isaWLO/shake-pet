@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>绘制自定义容器</title>
+  <style>
+    :root { color-scheme: dark; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 700px; min-height: 540px; overflow: hidden; color: #f6f0f5; background: #17151d; }
+    button, input { font: inherit; }
+    button { border: 1px solid rgba(255,255,255,.12); border-radius: 10px; color: #f6f0f5; background: rgba(255,255,255,.07); cursor: pointer; }
+    button:hover, button.active { border-color: rgba(246,169,196,.55); background: rgba(246,169,196,.18); }
+    .app { height: 100vh; display: grid; grid-template-rows: auto 1fr auto; }
+    header { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,.08); background: #1e1b25; }
+    header strong { font-size: 15px; }
+    header span { color: rgba(255,255,255,.48); font-size: 11px; }
+    #name { width: 180px; height: 34px; margin-left: auto; padding: 0 10px; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; color: white; outline: none; background: rgba(255,255,255,.06); }
+    main { min-height: 0; display: grid; grid-template-columns: 170px 1fr; }
+    aside { padding: 15px; border-right: 1px solid rgba(255,255,255,.08); background: #1c1922; }
+    .source-actions, .tools { display: grid; gap: 8px; }
+    aside button { min-height: 36px; padding: 0 10px; text-align: left; }
+    .label { margin: 18px 0 8px; color: rgba(255,255,255,.45); font-size: 10px; letter-spacing: .12em; }
+    label { display: block; margin-top: 15px; color: rgba(255,255,255,.64); font-size: 11px; }
+    label span { display: flex; justify-content: space-between; margin-bottom: 6px; }
+    input[type="range"] { width: 100%; accent-color: #ee91b5; }
+    .stage-wrap { min-width: 0; min-height: 0; display: grid; place-items: center; padding: 20px; overflow: hidden; background: radial-gradient(circle at 50% 44%, #2a2632, #15131a 70%); }
+    .checker { max-width: 100%; max-height: 100%; overflow: hidden; border: 1px solid rgba(255,255,255,.14); border-radius: 16px; box-shadow: 0 18px 55px rgba(0,0,0,.34); background-color: #e7e3e6; background-image: linear-gradient(45deg,#c9c3c8 25%,transparent 25%),linear-gradient(-45deg,#c9c3c8 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#c9c3c8 75%),linear-gradient(-45deg,transparent 75%,#c9c3c8 75%); background-size: 22px 22px; background-position: 0 0,0 11px,11px -11px,-11px 0; }
+    canvas { display: block; max-width: calc(100vw - 240px); max-height: calc(100vh - 145px); cursor: crosshair; touch-action: none; }
+    footer { min-height: 58px; display: flex; align-items: center; gap: 9px; padding: 10px 18px; border-top: 1px solid rgba(255,255,255,.08); background: #1e1b25; }
+    #status { flex: 1; color: rgba(255,255,255,.53); font-size: 11px; }
+    footer button { min-width: 82px; height: 34px; }
+    #save { border-color: rgba(238,145,181,.6); background: #a94e72; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div><strong>绘制活动空间</strong><br><span>蓝色区域就是图片可以移动的地方</span></div>
+      <input id="name" maxlength="30" value="珍珠粉游戏机" aria-label="容器名称" />
+    </header>
+    <main>
+      <aside>
+        <div class="source-actions">
+          <button id="import">导入 PNG</button>
+          <button id="builtin">使用珍珠粉样式</button>
+        </div>
+        <div class="label">绘制工具</div>
+        <div class="tools">
+          <button id="magic" class="active">魔棒填充</button>
+          <button id="paint">画笔添加</button>
+          <button id="erase">橡皮擦除</button>
+          <button id="undo">撤销</button>
+          <button id="reset">清空区域</button>
+        </div>
+        <label><span>魔棒容差 <output id="tolerance-value">12</output></span><input id="tolerance" type="range" min="0" max="100" value="12" /></label>
+        <label><span>笔刷大小 <output id="brush-value">36</output></span><input id="brush" type="range" min="5" max="120" value="36" /></label>
+      </aside>
+      <section class="stage-wrap"><div class="checker"><canvas id="canvas"></canvas></div></section>
+    </main>
+    <footer>
+      <span id="status">点击魔棒，再点击容器内部</span>
+      <button id="cancel">取消</button>
+      <button id="save">保存容器</button>
+    </footer>
+  </div>
+  <script src="container-mask.js"></script>
+  <script src="custom-container.js"></script>
+</body>
+</html>

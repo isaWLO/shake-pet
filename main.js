@@ -10,6 +10,8 @@ let unlockShortcutReady = false;
 let captureWin = null;
 let captureResolve = null;
 let captureImage = null;
+let containerEditorWin = null;
+let containerEditorResolve = null;
 
 function positionUnlockWindow() {
   if (!win || win.isDestroyed() || !unlockWin || unlockWin.isDestroyed()) return;
@@ -121,8 +123,9 @@ function createWindow() {
   win.on('resize', positionUnlockWindow);
 }
 
-ipcMain.handle('pick-images', async () => {
-  const result = await dialog.showOpenDialog(win, {
+ipcMain.handle('pick-images', async event => {
+  const parent = BrowserWindow.fromWebContents(event.sender) || win;
+  const result = await dialog.showOpenDialog(parent, {
     properties: ['openFile', 'multiSelections'],
     filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }]
   });
@@ -133,6 +136,56 @@ ipcMain.handle('pick-images', async () => {
     const buffer = await fs.readFile(filePath);
     return { name: path.basename(filePath), dataUrl: `data:${mime};base64,${buffer.toString('base64')}` };
   }));
+});
+
+function finishContainerEditor(result) {
+  const resolve = containerEditorResolve;
+  containerEditorResolve = null;
+  const windowToClose = containerEditorWin;
+  containerEditorWin = null;
+  if (windowToClose && !windowToClose.isDestroyed()) windowToClose.close();
+  resolve?.(result);
+}
+
+ipcMain.handle('open-container-editor', async (event, initial) => {
+  if (containerEditorResolve) {
+    containerEditorWin?.focus();
+    return null;
+  }
+  const parent = BrowserWindow.fromWebContents(event.sender) || win;
+  containerEditorWin = new BrowserWindow({
+    width: 900,
+    height: 700,
+    minWidth: 720,
+    minHeight: 560,
+    show: false,
+    parent,
+    autoHideMenuBar: true,
+    backgroundColor: '#17151d',
+    title: '绘制自定义容器',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+  const result = new Promise(resolve => { containerEditorResolve = resolve; });
+  containerEditorWin.on('closed', () => {
+    containerEditorWin = null;
+    if (containerEditorResolve) finishContainerEditor(null);
+  });
+  await containerEditorWin.loadFile('custom-container.html');
+  containerEditorWin.webContents.send('custom-container-initial', initial || null);
+  containerEditorWin.show();
+  return await result;
+});
+
+ipcMain.on('custom-container-submit', (event, definition) => {
+  if (containerEditorWin && event.sender === containerEditorWin.webContents) finishContainerEditor(definition);
+});
+
+ipcMain.on('custom-container-cancel', event => {
+  if (containerEditorWin && event.sender === containerEditorWin.webContents) finishContainerEditor(null);
 });
 
 function finishCapture(result) {
@@ -396,6 +449,8 @@ ipcMain.on('end-window-drag', () => {
 app.on('before-quit', () => {
   captureResolve = null;
   if (captureWin && !captureWin.isDestroyed()) captureWin.close();
+  containerEditorResolve = null;
+  if (containerEditorWin && !containerEditorWin.isDestroyed()) containerEditorWin.close();
   stopWindowDrag();
   stopResizeAnimation();
 });

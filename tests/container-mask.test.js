@@ -5,7 +5,8 @@ const {
   cleanMask,
   buildContainerDefinition,
   pointInPolygon,
-  wallPoints
+  wallPoints,
+  normalizeDefinition
 } = require('../container-mask');
 
 function rgba(width, height) {
@@ -76,5 +77,22 @@ assert.deepEqual(
 
 assert.equal(buildContainerDefinition(new Uint8Array(16), 4, 4), null,
   'an empty mask must not produce a container');
+
+{
+  const valid = normalizeDefinition({
+    name: '  粉色游戏机  ',
+    skinDataUrl: 'data:image/png;base64,AA==',
+    polygon: [[0.2, 0.2], [0.8, 0.2], [0.8, 0.8], [0.2, 0.8]],
+    spawn: [0.5, 0.5]
+  });
+  assert.equal(valid.name, '粉色游戏机');
+  assert.deepEqual(valid.spawn, [0.5, 0.5]);
+  assert.equal(normalizeDefinition({ ...valid, skinDataUrl: 'https://example.com/a.png' }), null,
+    'remote URLs must not be persisted as trusted custom skins');
+  assert.equal(normalizeDefinition({ ...valid, polygon: [[0, 0], [1, 1]] }), null,
+    'a malformed polygon must be rejected');
+  assert.equal(normalizeDefinition({ ...valid, spawn: [0.95, 0.95] }), null,
+    'the safe spawn point must be inside the activity region');
+}
 
 console.log('container mask: ok');
