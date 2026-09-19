@@ -7,6 +7,13 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <header class="web-brand">
+    <h1>摇摇乐</h1>
+    <p>装下喜欢的角色，晃一晃，听它们随音乐跳起来</p>
+  </header>
+  <i class="web-doodle doodle-one" aria-hidden="true"></i>
+  <i class="web-doodle doodle-two" aria-hidden="true"></i>
+  <i class="web-doodle doodle-three" aria-hidden="true"></i>
   <main id="toy" data-shape="bottle">
     <canvas id="world"></canvas>
 
@@ -14,6 +21,7 @@
       <span class="drag-space" aria-hidden="true"></span>
       <div class="actions">
         <button id="add" title="添加图片">＋</button>
+        <button id="capture" title="截图"><span class="capture-glyph"></span></button>
         <button id="cutout" title="手动抠图" disabled>✂</button>
         <button id="remove" title="删除选中图片" disabled>⌫</button>
         <button id="settings" title="瓶子设置">◈</button>
@@ -129,6 +137,7 @@
           <button id="mode-erase" class="active wide">擦除</button>
           <button id="mode-restore" class="wide">恢复</button>
           <button id="editor-auto" class="wide">自动重抠</button>
+          <button id="editor-ai" class="wide">AI 精抠</button>
         </div>
         <label>
           <span>笔刷 <output id="brush-value">28</output></span>
@@ -152,6 +161,8 @@
     <div id="toast" class="hidden"></div>
   </main>
   <script src="web-bridge.js"></script>
+  <script src="world-layout.js"></script>
+  <script src="ai-cutout.js"></script>
   <script src="node_modules/matter-js/build/matter.min.js"></script>
   <script src="renderer.js"></script>
 </body>

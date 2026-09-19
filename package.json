@@ -8,11 +8,13 @@
   "scripts": {
     "start": "electron .",
     "web": "node scripts/serve-web.js",
+    "test": "node tests/world-layout.test.js && node tests/capture-region.test.js && node tests/ai-model.test.js && node tests/ai-cutout.test.js",
     "build:web": "node scripts/build-web.js",
     "dist:mac": "electron-builder --mac dmg"
   },
   "dependencies": {
-    "matter-js": "^0.20.0"
+    "matter-js": "^0.20.0",
+    "onnxruntime-web": "^1.29.0"
   },
   "devDependencies": {
     "electron": "^37.2.3",
@@ -30,15 +32,25 @@
       "preload.js",
       "renderer.js",
       "web-bridge.js",
+      "world-layout.js",
+      "ai-model.js",
+      "ai-cutout.js",
+      "capture-region.js",
+      "capture.html",
       "index.html",
       "unlock.html",
       "styles.css",
       "package.json",
-      "node_modules/matter-js/**/*"
+      "node_modules/matter-js/**/*",
+      "node_modules/onnxruntime-web/dist/ort.wasm.min.js",
+      "node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.mjs",
+      "node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm"
     ],
     "mac": {
       "category": "public.app-category.entertainment",
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "extendInfo": {
         "NSAudioCaptureUsageDescription": "Shake Pet analyzes system audio locally to animate your pictures.",
         "NSMicrophoneUsageDescription": "Shake Pet can use microphone audio when system audio capture is unavailable.",

@@ -31,6 +31,14 @@ const { ensureAiModel } = require('../ai-model');
       }), expected),
       /校验失败/
     );
+
+    let attempts = 0;
+    await ensureAiModel(path.join(directory, 'retry'), async () => {
+      attempts++;
+      if (attempts < 3) throw new Error('ECONNRESET');
+      return { ok: true, arrayBuffer: async () => good };
+    }, expected);
+    assert.equal(attempts, 3);
     console.log('AI model cache: ok');
   } finally {
     await fs.rm(directory, { recursive: true, force: true });

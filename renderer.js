@@ -46,6 +46,7 @@ const audioStatusElement = document.querySelector('#audio-status');
 const audioStatusRow = document.querySelector('.audio-status-row');
 const audioMeter = document.querySelector('#audio-meter');
 const audioTestButton = document.querySelector('#audio-test');
+const editorAiButton = document.querySelector('#editor-ai');
 
 document.documentElement.dataset.platform = window.desktopPet.platform || 'desktop';
 
@@ -90,13 +91,14 @@ let audioVisualOffset = { x: 0, y: 0 };
 let audioTestUntil = 0;
 let audioTestStartedAt = 0;
 let audioTestBeatIndex = -1;
+let aiSessionPromise = null;
 const audioLevels = { volume: 0, bass: 0, mid: 0, high: 0 };
 const audioSpectrum = new Float32Array(36);
 const audioSpectrumRise = new Float32Array(audioSpectrum.length);
 
 const preferences = JSON.parse(localStorage.getItem('shake-pet-preferences') || '{}');
 shapeSelect.value = ['bottle', 'box'].includes(preferences.shape) ? preferences.shape : 'bottle';
-colorInput.value = preferences.color || '#79b8ff';
+colorInput.value = preferences.color || (window.desktopPet.platform === 'web' ? '#dc8fa2' : '#79b8ff');
 thresholdInput.value = preferences.threshold || 42;
 autoCutoutInput.checked = preferences.autoCutout !== false;
 windowWidthInput.value = preferences.windowWidth || 360;
@@ -304,9 +306,10 @@ function audioWaveDisplayLevel(value) {
 }
 
 function audioWaveHorizontalRange() {
+  const width = viewportSize.width;
   return shapeSelect.value === 'bottle'
-    ? { left: innerWidth * .13, right: innerWidth * .87 }
-    : { left: 18, right: innerWidth - 18 };
+    ? { left: width * .13, right: width * .87 }
+    : { left: 18, right: width - 18 };
 }
 
 function audioWaveSampleAtX(x, values = audioSpectrum) {
@@ -326,7 +329,7 @@ function audioWaveMetricsAtX(x) {
   const rawRise = audioWaveSampleAtX(x, audioSpectrumRise);
   const displayedLevel = audioWaveDisplayLevel(level);
   const displayedRise = Math.max(0, displayedLevel - audioWaveDisplayLevel(level - rawRise));
-  const baseline = innerHeight - (shapeSelect.value === 'bottle' ? 31 : 36);
+  const baseline = viewportSize.height - (shapeSelect.value === 'bottle' ? 31 : 36);
   const maximumHeight = audioWaveMaximumHeight(baseline);
   return {
     level,
@@ -342,10 +345,10 @@ function drawAudioWaveform() {
   for (const value of audioSpectrum) peak = Math.max(peak, value);
   if (peak < .012) return;
 
-  const path = containerPath(shapeSelect.value, innerWidth, innerHeight);
+  const path = containerPath(shapeSelect.value, viewportSize.width, viewportSize.height);
   const rgb = hexToRgb(colorInput.value);
   const { left, right } = audioWaveHorizontalRange();
-  const baseline = innerHeight - (shapeSelect.value === 'bottle' ? 31 : 36);
+  const baseline = viewportSize.height - (shapeSelect.value === 'bottle' ? 31 : 36);
   const maximumHeight = audioWaveMaximumHeight(baseline);
 
   ctx.save();
@@ -608,8 +611,7 @@ function fitSpritesToContainer(width, height, previousSize = null) {
 }
 
 function resize() {
-  const width = innerWidth;
-  const height = innerHeight;
+  const { width, height } = getWorldSize(toy, innerWidth, innerHeight);
   const dpr = devicePixelRatio || 1;
   canvas.width = Math.round(width * dpr);
   canvas.height = Math.round(height * dpr);
@@ -648,8 +650,9 @@ function containerPath(shape, width, height) {
 
 function drawContainer() {
   const rgb = hexToRgb(colorInput.value);
-  const path = containerPath(shapeSelect.value, innerWidth, innerHeight);
-  const gradient = ctx.createLinearGradient(0, 0, innerWidth, innerHeight);
+  const { width, height } = viewportSize;
+  const path = containerPath(shapeSelect.value, width, height);
+  const gradient = ctx.createLinearGradient(0, 0, width, height);
   gradient.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},.26)`);
   gradient.addColorStop(.55, `rgba(${rgb.r},${rgb.g},${rgb.b},.10)`);
   gradient.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},.21)`);
@@ -661,13 +664,13 @@ function drawContainer() {
 
   ctx.save();
   ctx.clip(path);
-  const shine = ctx.createLinearGradient(0, 0, innerWidth, 0);
+  const shine = ctx.createLinearGradient(0, 0, width, 0);
   shine.addColorStop(0, 'rgba(255,255,255,.18)');
   shine.addColorStop(.18, 'rgba(255,255,255,.02)');
   shine.addColorStop(.82, 'rgba(255,255,255,.01)');
   shine.addColorStop(1, 'rgba(255,255,255,.12)');
   ctx.fillStyle = shine;
-  ctx.fillRect(0, 0, innerWidth, innerHeight);
+  ctx.fillRect(0, 0, width, height);
   ctx.restore();
 }
 
@@ -949,14 +952,14 @@ async function addImage(item) {
     const originalImage = await loadImage(item.dataUrl);
     const defaultRim = Number(defaultRimInput.value);
     const defaultScale = Number(defaultSizeInput.value);
-    const processed = processImageCanvases(originalImage, autoCutoutInput.checked, Number(thresholdInput.value), defaultRim);
+    const processed = processImageCanvases(originalImage, autoCutoutInput.checked && !item.skipAutoCutout, Number(thresholdInput.value), defaultRim);
     const baseImage = await loadImage(processed.base.toDataURL('image/png'));
     const image = await loadImage(processed.framed.toDataURL('image/png'));
     const baseSize = displaySize(baseImage);
     const pixelScale = baseSize.width / baseImage.naturalWidth;
     const width = image.naturalWidth * pixelScale * defaultScale / 100;
     const height = image.naturalHeight * pixelScale * defaultScale / 100;
-    const body = createSpriteBody(image, width, height, 75 + Math.random() * Math.max(20, innerWidth - 150), 82 + Math.random() * 55);
+    const body = createSpriteBody(image, width, height, 75 + Math.random() * Math.max(20, viewportSize.width - 150), 82 + Math.random() * 55);
     sprites.set(body.id, {
       img: image,
       baseImg: baseImage,
@@ -972,6 +975,7 @@ async function addImage(item) {
     });
     Composite.add(engine.world, body);
     empty.classList.add('hidden');
+    return body;
   } catch (error) {
     showToast(`${item.name || '图片'}：${error.message || '导入失败'}`);
   }
@@ -993,8 +997,8 @@ function serializeCurrentScene() {
       pixelScale: sprite.pixelScale,
       scalePercent: sprite.scalePercent,
       rimWidth: sprite.rimWidth,
-      x: body.position.x / innerWidth,
-      y: body.position.y / innerHeight,
+      x: body.position.x / viewportSize.width,
+      y: body.position.y / viewportSize.height,
       angle: body.angle
     });
   }
@@ -1079,8 +1083,8 @@ async function restoreSavedScene(requestedId = null) {
         const normalizedY = Number.isFinite(savedY) ? savedY : .5;
         const body = createSpriteBody(
           image, width, height,
-          Math.max(30, Math.min(innerWidth-30, normalizedX * innerWidth)),
-          Math.max(30, Math.min(innerHeight-30, normalizedY * innerHeight))
+          Math.max(30, Math.min(viewportSize.width - 30, normalizedX * viewportSize.width)),
+          Math.max(30, Math.min(viewportSize.height - 30, normalizedY * viewportSize.height))
         );
         Body.setAngle(body, Number(saved.angle) || 0);
         sprites.set(body.id, {
@@ -1188,6 +1192,88 @@ function resetEditorAutoCutout() {
   editorContext.putImageData(imageData, 0, 0);
 }
 
+function loadDesktopScript(source) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = source;
+    script.onload = resolve;
+    script.onerror = () => reject(new Error('AI 运行组件加载失败'));
+    document.head.appendChild(script);
+  });
+}
+
+async function getAiCutoutSession() {
+  if (aiSessionPromise) return aiSessionPromise;
+  aiSessionPromise = (async () => {
+    if (!window.desktopPet.isDesktop || !window.desktopPet.getAiCutoutModel) {
+      throw new Error('当前版本暂不支持 AI 抠图');
+    }
+    if (!window.ort) await loadDesktopScript('node_modules/onnxruntime-web/dist/ort.wasm.min.js');
+    window.ort.env.wasm.numThreads = 1;
+    window.ort.env.wasm.wasmPaths = new URL('node_modules/onnxruntime-web/dist/', location.href).href;
+    const received = await window.desktopPet.getAiCutoutModel();
+    const model = received instanceof Uint8Array
+      ? received
+      : Uint8Array.from(received?.data || received || []);
+    return window.ort.InferenceSession.create(model, { executionProviders: ['wasm'] });
+  })().catch(error => {
+    aiSessionPromise = null;
+    throw error;
+  });
+  return aiSessionPromise;
+}
+
+async function runAiCutout() {
+  if (!editorOriginalCanvas || editorAiButton.disabled) return;
+  const originalLabel = editorAiButton.textContent;
+  editorAiButton.disabled = true;
+  editorAiButton.textContent = '准备中…';
+  showToast('首次使用需下载约 46 MB 模型');
+  try {
+    const size = 1024;
+    const inputCanvas = document.createElement('canvas');
+    inputCanvas.width = size;
+    inputCanvas.height = size;
+    const inputContext = inputCanvas.getContext('2d', { willReadFrequently: true });
+    inputContext.drawImage(editorOriginalCanvas, 0, 0, size, size);
+    const rgba = inputContext.getImageData(0, 0, size, size).data;
+    const session = await getAiCutoutSession();
+    editorAiButton.textContent = '识别中…';
+    const input = new window.ort.Tensor('float32', window.aiCutout.rgbaToIsNetInput(rgba), [1, 3, size, size]);
+    const output = await session.run({ input_image: input });
+    const probabilities = output.output_image?.data;
+    if (!probabilities) throw new Error('AI 模型输出无效');
+    const alpha = window.aiCutout.probabilitiesToAlpha(probabilities, Number(thresholdInput.value));
+
+    const mask = document.createElement('canvas');
+    mask.width = size;
+    mask.height = size;
+    const maskContext = mask.getContext('2d');
+    const maskImage = maskContext.createImageData(size, size);
+    for (let pixel = 0; pixel < alpha.length; pixel++) {
+      const offset = pixel * 4;
+      maskImage.data[offset] = 255;
+      maskImage.data[offset + 1] = 255;
+      maskImage.data[offset + 2] = 255;
+      maskImage.data[offset + 3] = alpha[pixel];
+    }
+    maskContext.putImageData(maskImage, 0, 0);
+
+    editorContext.clearRect(0, 0, editorCanvas.width, editorCanvas.height);
+    editorContext.drawImage(editorOriginalCanvas, 0, 0);
+    editorContext.save();
+    editorContext.globalCompositeOperation = 'destination-in';
+    editorContext.drawImage(mask, 0, 0, editorCanvas.width, editorCanvas.height);
+    editorContext.restore();
+    showToast('AI 抠图完成，可继续手动修正');
+  } catch (error) {
+    showToast(error.message || 'AI 抠图失败');
+  } finally {
+    editorAiButton.disabled = false;
+    editorAiButton.textContent = originalLabel;
+  }
+}
+
 function openCutoutEditor() {
   if (!selectedBody) return;
   const sprite = sprites.get(selectedBody.id);
@@ -1289,7 +1375,7 @@ function bodyAt(x, y) {
 function tick() {
   applyAudioReactiveMotion(performance.now());
   Engine.update(engine, 1000 / 60);
-  ctx.clearRect(0, 0, innerWidth, innerHeight);
+  ctx.clearRect(0, 0, viewportSize.width, viewportSize.height);
   ctx.save();
   ctx.translate(audioVisualOffset.x, audioVisualOffset.y);
   drawContainer();
@@ -1381,8 +1467,8 @@ canvas.addEventListener('pointermove', event => {
     y: Math.max(-8, Math.min(8, (point.y - spriteDragLast.y) / dt * 7))
   };
   Body.setPosition(draggedBody, {
-    x: Math.max(18, Math.min(innerWidth - 18, point.x + spriteDragOffset.x)),
-    y: Math.max(18, Math.min(innerHeight - 18, point.y + spriteDragOffset.y))
+    x: Math.max(18, Math.min(viewportSize.width - 18, point.x + spriteDragOffset.x)),
+    y: Math.max(18, Math.min(viewportSize.height - 18, point.y + spriteDragOffset.y))
   });
   spriteDragLast = { ...point, time: now };
 });
@@ -1413,6 +1499,19 @@ function endWindowDrag() {
 window.addEventListener('pointerup', event => { endSpriteDrag(event); endWindowDrag(); });
 window.addEventListener('blur', () => { endSpriteDrag(); endWindowDrag(); });
 document.querySelector('#add').addEventListener('click', async () => addFiles(await window.desktopPet.pickImages()));
+document.querySelector('#capture').addEventListener('click', async () => {
+  try {
+    const item = await window.desktopPet.captureScreen();
+    if (!item) return;
+    item.skipAutoCutout = true;
+    const body = await addImage(item);
+    if (!body) return;
+    setSelection(body, false);
+    openCutoutEditor();
+  } catch (error) {
+    showToast(error.message || '截图失败');
+  }
+});
 document.querySelector('#remove').addEventListener('click', removeSelected);
 document.querySelector('#cutout').addEventListener('click', openCutoutEditor);
 document.querySelector('#save').addEventListener('click', () => {
@@ -1436,8 +1535,8 @@ document.querySelector('#gravity').addEventListener('click', (event) => {
 
 shapeSelect.addEventListener('change', () => {
   toy.dataset.shape = shapeSelect.value;
-  fitSpritesToContainer(innerWidth, innerHeight);
-  buildWalls(innerWidth, innerHeight);
+  fitSpritesToContainer(viewportSize.width, viewportSize.height);
+  buildWalls(viewportSize.width, viewportSize.height);
   savePreferences();
 });
 colorInput.addEventListener('input', savePreferences);
@@ -1562,6 +1661,7 @@ function chooseEditorMode(mode) {
 document.querySelector('#mode-erase').addEventListener('click', () => chooseEditorMode('erase'));
 document.querySelector('#mode-restore').addEventListener('click', () => chooseEditorMode('restore'));
 document.querySelector('#editor-auto').addEventListener('click', resetEditorAutoCutout);
+editorAiButton.addEventListener('click', runAiCutout);
 document.querySelector('#editor-close').addEventListener('click', closeCutoutEditor);
 document.querySelector('#editor-cancel').addEventListener('click', closeCutoutEditor);
 document.querySelector('#editor-apply').addEventListener('click', applyManualCutout);

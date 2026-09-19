@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Only the Windows desktop UI exposes AI cutout in this trial.
-- Model URL is pinned to Ko033 IS-Net commit `5349b61`, file size `45902969`, SHA-256 `f7fc3645cb36c9c5c6a58dd2a8d44642f5f889165aa6693d26a66a8e916e4f82`.
+- Model URL is pinned to Ko033 IS-Net commit `5349b61`, file size `45902969`, SHA-256 `5039225b9a4ac3df55f185d24b7a92d640c86cc4747002d7f23351e394de03a6`.
 - Images never leave the device; network is used only to download the model.
 - Existing quick cutout, manual brush, crop, plastic rim, and physics flows remain intact.
 - AI failure preserves the current editor pixels and reports an error.
