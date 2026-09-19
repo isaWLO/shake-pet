@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { rgbaToIsNetInput, probabilitiesToAlpha } = require('../ai-cutout');
+const { rgbaToIsNetInput, probabilitiesToAlpha, finalizeCutoutAlpha } = require('../ai-cutout');
 
 const input = rgbaToIsNetInput(new Uint8ClampedArray([
   255, 127, 0, 255,
@@ -21,5 +21,11 @@ assert.throws(
   () => probabilitiesToAlpha(new Float32Array([0.4, 0.4]), 42),
   /没有识别到主体/
 );
+
+const separated = { data: new Uint8ClampedArray(7 * 4) };
+for (const pixel of [0, 1, 5, 6]) separated.data[pixel * 4 + 3] = 255;
+finalizeCutoutAlpha(separated, 7, 1);
+assert.ok(separated.data[3] > 0, 'first separated part should remain');
+assert.ok(separated.data[6 * 4 + 3] > 0, 'second separated part should remain');
 
 console.log('AI cutout conversion: ok');

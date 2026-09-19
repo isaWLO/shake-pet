@@ -730,27 +730,6 @@ function removeConnectedBackground(imageData, width, height, threshold) {
   }
 }
 
-function featherImageData(imageData, width, height, radius = 2) {
-  const data = imageData.data;
-  const alpha = new Uint8Array(width * height);
-  for (let pixel = 0; pixel < alpha.length; pixel++) alpha[pixel] = data[pixel * 4 + 3];
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const pixel = y * width + x;
-      if (alpha[pixel] === 0) continue;
-      let nearest = radius + 1;
-      for (let dy = -radius; dy <= radius; dy++) {
-        for (let dx = -radius; dx <= radius; dx++) {
-          const nx = x + dx, ny = y + dy;
-          if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
-          if (alpha[ny * width + nx] === 0) nearest = Math.min(nearest, Math.max(Math.abs(dx), Math.abs(dy)));
-        }
-      }
-      if (nearest <= radius) data[pixel * 4 + 3] = Math.round(alpha[pixel] * (nearest / (radius + 1)));
-    }
-  }
-}
-
 function keepLargestForegroundComponent(imageData, width, height) {
   const data = imageData.data;
   const visited = new Uint8Array(width * height);
@@ -854,7 +833,7 @@ function processImageCanvases(image, removeBackground, threshold, rimWidth = 16)
 
   if (removeBackground) removeConnectedBackground(imageData, width, height, threshold);
   keepLargestForegroundComponent(imageData, width, height);
-  featherImageData(imageData, width, height, 2);
+  window.aiCutout.finalizeCutoutAlpha(imageData, width, height);
   sourceContext.putImageData(imageData, 0, 0);
 
   let minX = width, minY = height, maxX = -1, maxY = -1;
@@ -1341,8 +1320,7 @@ async function applyManualCutout() {
     const workingContext = working.getContext('2d', { willReadFrequently: true });
     workingContext.drawImage(editorCanvas, 0, 0);
     const imageData = workingContext.getImageData(0, 0, working.width, working.height);
-    keepLargestForegroundComponent(imageData, working.width, working.height);
-    featherImageData(imageData, working.width, working.height, 2);
+    window.aiCutout.finalizeCutoutAlpha(imageData, working.width, working.height);
     workingContext.putImageData(imageData, 0, 0);
     const sprite = sprites.get(selectedBody.id);
     const base = cropSubjectCanvas(working, 2);

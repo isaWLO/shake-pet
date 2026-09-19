@@ -32,5 +32,27 @@
     });
   }
 
-  return { rgbaToIsNetInput, probabilitiesToAlpha };
+  function finalizeCutoutAlpha(imageData, width, height, radius = 2) {
+    const data = imageData.data;
+    const alpha = new Uint8Array(width * height);
+    for (let pixel = 0; pixel < alpha.length; pixel++) alpha[pixel] = data[pixel * 4 + 3];
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const pixel = y * width + x;
+        if (alpha[pixel] === 0) continue;
+        let nearest = radius + 1;
+        for (let dy = -radius; dy <= radius; dy++) {
+          for (let dx = -radius; dx <= radius; dx++) {
+            const nx = x + dx, ny = y + dy;
+            if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+            if (alpha[ny * width + nx] === 0) nearest = Math.min(nearest, Math.max(Math.abs(dx), Math.abs(dy)));
+          }
+        }
+        if (nearest <= radius) data[pixel * 4 + 3] = Math.round(alpha[pixel] * (nearest / (radius + 1)));
+      }
+    }
+    return imageData;
+  }
+
+  return { rgbaToIsNetInput, probabilitiesToAlpha, finalizeCutoutAlpha };
 });
