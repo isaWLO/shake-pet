@@ -38,6 +38,16 @@ assert.deepEqual(
   { x: 0, y: 0 },
   'small waves should not make images tremble in place'
 );
+assert.deepEqual(
+  getAudioWaveImpulse({ risePixels: 3, displayedLevel: .25, slope: .2 }, 1, 4, 4, 0),
+  { x: 0, y: 0 },
+  'strength controls must not amplify weak waves into tremors'
+);
+assert.deepEqual(
+  getAudioWaveImpulse({ risePixels: 12, displayedLevel: .8, slope: .5 }, 1, 1, .5, .4),
+  { x: 0, y: 0 },
+  'subtle output should be suppressed instead of becoming a tiny jump'
+);
 
 assert.equal(getAudioControlMultiplier(0, 2), 0);
 assert.equal(getAudioControlMultiplier(50, 2), 2);

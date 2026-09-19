@@ -96,8 +96,8 @@ button:disabled { opacity: .28; cursor: default; }
   z-index: 9;
   top: 58px;
   right: 0;
-  width: 28px;
-  min-height: 58px;
+  width: 34px;
+  min-height: 34px;
   -webkit-app-region: no-drag;
 }
 
@@ -105,13 +105,12 @@ button.controls-trigger {
   position: absolute;
   top: 0;
   right: 0;
-  width: 24px;
-  height: 54px;
-  border-right: 0;
-  border-radius: 13px 0 0 13px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
   color: rgba(255,255,255,.62);
   font-size: 18px;
-  line-height: 50px;
+  line-height: 27px;
 }
 
 .controls-dock:hover .controls-trigger,
@@ -121,7 +120,7 @@ button.controls-trigger {
 .panel {
   position: absolute;
   top: -6px;
-  right: 24px;
+  right: 30px;
   width: 236px;
   max-height: calc(100vh - 70px);
   padding: 14px;
