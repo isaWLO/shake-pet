@@ -84,10 +84,8 @@ let audioStartPromise = null;
 let audioCaptureGeneration = 0;
 let audioBassBaseline = .04;
 let audioLastBeatAt = 0;
-let audioLastLaunchAt = 0;
 let audioBeatPending = false;
 let audioKick = 0;
-let audioVisualOffset = { x: 0, y: 0 };
 let audioTestUntil = 0;
 let audioTestStartedAt = 0;
 let audioTestBeatIndex = -1;
@@ -448,39 +446,12 @@ function applyAudioReactiveMotion(now) {
   const bodies = Composite.allBodies(engine.world).filter(body => sprites.has(body.id) && !body.isStatic);
   if (audioBeatPending) {
     audioBeatPending = false;
-    if (now - audioLastLaunchAt > 110) {
-      audioLastLaunchAt = now;
-      audioKick = Math.max(audioKick, .65 + audioLevels.bass * .95);
-      const launchSpeed = Math.min(18, (6 + audioLevels.bass * 8 + audioLevels.volume * 4) * bassStrength * strength);
-      for (const body of bodies) {
-        const wave = audioWaveMetricsAtX(body.position.x);
-        const localLaunch = launchSpeed * (.82 + wave.level * .36);
-        Body.setVelocity(body, {
-          x: Math.max(-18, Math.min(18, body.velocity.x * .78 + wave.slope * localLaunch * .55)),
-          y: Math.max(-18, Math.min(18, Math.min(0, body.velocity.y) - localLaunch))
-        });
-        Body.setAngularVelocity(body, Math.max(-.18, Math.min(.18, body.angularVelocity * .82 + wave.slope * localLaunch * .055)));
-        body.plugin = body.plugin || {};
-        body.plugin.audioWaveLiftAt = now;
-      }
-    }
+    audioKick = Math.max(audioKick, .3 + audioLevels.bass * .55);
   }
 
   const activity = audioLevels.volume * .7 + audioLevels.mid * .25 + audioLevels.high * .12;
-  const amplitude = Math.min(6, (activity * 3.1 + audioKick * 3.2) * strength);
-  let leftEnergy = 0;
-  let rightEnergy = 0;
   let spectrumPeak = 0;
-  for (let index = 0; index < audioSpectrum.length; index++) {
-    spectrumPeak = Math.max(spectrumPeak, audioSpectrum[index]);
-    if (index < audioSpectrum.length / 2) leftEnergy += audioSpectrum[index];
-    else rightEnergy += audioSpectrum[index];
-  }
-  const balance = (rightEnergy - leftEnergy) / Math.max(1, audioSpectrum.length / 2);
-  const targetX = balance * amplitude * 1.5;
-  const targetY = -(audioLevels.bass * .65 + audioKick) * strength * 2.1;
-  audioVisualOffset.x += (targetX - audioVisualOffset.x) * .48;
-  audioVisualOffset.y += (targetY - audioVisualOffset.y) * .48;
+  for (const value of audioSpectrum) spectrumPeak = Math.max(spectrumPeak, value);
 
   if (activity > .008 || audioKick > .01 || spectrumPeak > .012) {
     for (const body of bodies) {
@@ -488,18 +459,18 @@ function applyAudioReactiveMotion(now) {
       const contact = Math.max(0, Math.min(1, (body.bounds.max.y + 10 - wave.y) / 26));
       body.plugin = body.plugin || {};
       if (wave.risePixels > .35 && contact > 0 && now - (body.plugin.audioWaveLiftAt || 0) > 82) {
-        const waveLift = Math.min(12, (1.1 + wave.risePixels * .28 + wave.displayedLevel * 3) * (.35 + contact * .65) * bassStrength * strength);
-        if (waveLift > .8) {
+        const impulse = getAudioWaveImpulse(wave, contact, bassStrength, strength, audioKick);
+        if (impulse.y < 0) {
           Body.setVelocity(body, {
-            x: Math.max(-18, Math.min(18, body.velocity.x * .88 + wave.slope * waveLift * .35)),
-            y: Math.max(-18, Math.min(18, Math.min(0, body.velocity.y) - waveLift))
+            x: Math.max(-12, Math.min(12, body.velocity.x * .94 + impulse.x)),
+            y: Math.max(-12, Math.min(0, body.velocity.y) + impulse.y)
           });
           body.plugin.audioWaveLiftAt = now;
         }
       }
       Body.applyForce(body, body.position, {
-        x: wave.slope * activity * strength * .00048 * body.mass,
-        y: -(wave.displayedLevel * .70 + audioLevels.bass * .30) * bassStrength * strength * .00030 * body.mass
+        x: wave.slope * activity * strength * .00018 * body.mass,
+        y: -(wave.displayedLevel * .70 + audioLevels.bass * .30) * bassStrength * strength * .00018 * body.mass
       });
     }
   }
@@ -1355,7 +1326,6 @@ function tick() {
   Engine.update(engine, 1000 / 60);
   ctx.clearRect(0, 0, viewportSize.width, viewportSize.height);
   ctx.save();
-  ctx.translate(audioVisualOffset.x, audioVisualOffset.y);
   drawContainer();
   drawAudioWaveform();
   for (const body of Composite.allBodies(engine.world)) {
