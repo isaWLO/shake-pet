@@ -53,8 +53,10 @@
           <select id="shape">
             <option value="bottle">汽水瓶</option>
             <option value="box">展示盒</option>
+            <option value="custom" disabled>自定义容器</option>
           </select>
         </label>
+        <button id="custom-container" class="panel-action" type="button">绘制自定义容器</button>
         <label>
           <span>瓶子颜色</span>
           <input id="container-color" type="color" value="#79b8ff" />
@@ -177,6 +179,7 @@
   <script src="web-bridge.js"></script>
   <script src="world-layout.js"></script>
   <script src="ai-cutout.js"></script>
+  <script src="container-mask.js"></script>
   <script src="node_modules/matter-js/build/matter.min.js"></script>
   <script src="renderer.js"></script>
 </body>

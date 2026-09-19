@@ -318,5 +318,10 @@
     };
   }
 
-  return { floodSelect, paintCircle, cleanMask, buildContainerDefinition, pointInPolygon, wallPoints, normalizeDefinition };
+  function relocatePoint(point, definition) {
+    if (!definition || !Array.isArray(definition.spawn)) return point;
+    return pointInPolygon(point, definition.polygon) ? point : definition.spawn.slice();
+  }
+
+  return { floodSelect, paintCircle, cleanMask, buildContainerDefinition, pointInPolygon, wallPoints, normalizeDefinition, relocatePoint };
 });

@@ -49,6 +49,8 @@ const audioStatusRow = document.querySelector('.audio-status-row');
 const audioMeter = document.querySelector('#audio-meter');
 const audioTestButton = document.querySelector('#audio-test');
 const editorAiButton = document.querySelector('#editor-ai');
+const customContainerButton = document.querySelector('#custom-container');
+const customShapeOption = shapeSelect.querySelector('option[value="custom"]');
 
 document.documentElement.dataset.platform = window.desktopPet.platform || 'desktop';
 
@@ -92,6 +94,8 @@ let audioTestUntil = 0;
 let audioTestStartedAt = 0;
 let audioTestBeatIndex = -1;
 let aiSessionPromise = null;
+let currentCustomContainer = null;
+let customSkinImage = null;
 const audioLevels = { volume: 0, bass: 0, mid: 0, high: 0 };
 const audioSpectrum = new Float32Array(36);
 const audioSpectrumRise = new Float32Array(audioSpectrum.length);
@@ -122,7 +126,7 @@ toy.dataset.shape = shapeSelect.value;
 
 function savePreferences() {
   localStorage.setItem('shake-pet-preferences', JSON.stringify({
-    shape: shapeSelect.value,
+    shape: ['bottle', 'box'].includes(shapeSelect.value) ? shapeSelect.value : 'bottle',
     color: colorInput.value,
     threshold: Number(thresholdInput.value),
     autoCutout: autoCutoutInput.checked,
@@ -310,7 +314,9 @@ function updateTestSpectrum(elapsed, pulse) {
 }
 
 function audioWaveMaximumHeight(baseline) {
-  const top = shapeSelect.value === 'bottle' ? 14 : 18;
+  const top = shapeSelect.value === 'custom' && currentCustomContainer
+    ? Math.min(...currentCustomContainer.polygon.map(point => point[1])) * viewportSize.height
+    : shapeSelect.value === 'bottle' ? 14 : 18;
   return Math.max(24, baseline - top);
 }
 
@@ -320,6 +326,10 @@ function audioWaveDisplayLevel(value) {
 
 function audioWaveHorizontalRange() {
   const width = viewportSize.width;
+  if (shapeSelect.value === 'custom' && currentCustomContainer) {
+    const xs = currentCustomContainer.polygon.map(point => point[0] * width);
+    return { left: Math.min(...xs), right: Math.max(...xs) };
+  }
   return shapeSelect.value === 'bottle'
     ? { left: width * .13, right: width * .87 }
     : { left: 18, right: width - 18 };
@@ -342,7 +352,9 @@ function audioWaveMetricsAtX(x) {
   const rawRise = audioWaveSampleAtX(x, audioSpectrumRise);
   const displayedLevel = audioWaveDisplayLevel(level);
   const displayedRise = Math.max(0, displayedLevel - audioWaveDisplayLevel(level - rawRise));
-  const baseline = viewportSize.height - (shapeSelect.value === 'bottle' ? 31 : 36);
+  const baseline = shapeSelect.value === 'custom' && currentCustomContainer
+    ? Math.max(...currentCustomContainer.polygon.map(point => point[1])) * viewportSize.height - 10
+    : viewportSize.height - (shapeSelect.value === 'bottle' ? 31 : 36);
   const maximumHeight = audioWaveMaximumHeight(baseline);
   return {
     level,
@@ -361,7 +373,9 @@ function drawAudioWaveform() {
   const path = containerPath(shapeSelect.value, viewportSize.width, viewportSize.height);
   const rgb = hexToRgb(colorInput.value);
   const { left, right } = audioWaveHorizontalRange();
-  const baseline = viewportSize.height - (shapeSelect.value === 'bottle' ? 31 : 36);
+  const baseline = shapeSelect.value === 'custom' && currentCustomContainer
+    ? Math.max(...currentCustomContainer.polygon.map(point => point[1])) * viewportSize.height - 10
+    : viewportSize.height - (shapeSelect.value === 'bottle' ? 31 : 36);
   const maximumHeight = audioWaveMaximumHeight(baseline);
 
   ctx.save();
@@ -500,6 +514,9 @@ function addWall(x1, y1, x2, y2, thickness = 26) {
 }
 
 function containerWallPoints(width, height) {
+  if (shapeSelect.value === 'custom' && currentCustomContainer) {
+    return ContainerMask.wallPoints(currentCustomContainer, width, height);
+  }
   if (shapeSelect.value === 'bottle') {
     return [[width*.30,8],[width*.70,8],[width*.70,66],[width-25,138],[width-13,height-48],[width-34,height-13],[34,height-13],[13,height-48],[25,138],[width*.30,66]];
   }
@@ -547,6 +564,15 @@ function horizontalCorrection(body, width, height, yOffset) {
 }
 
 function keepBodyInside(body, width, height) {
+  if (shapeSelect.value === 'custom' && currentCustomContainer) {
+    const point = [body.position.x / width, body.position.y / height];
+    const safe = ContainerMask.relocatePoint(point, currentCustomContainer);
+    if (safe[0] !== point[0] || safe[1] !== point[1]) {
+      Body.setPosition(body, { x: safe[0] * width, y: safe[1] * height });
+      Body.setVelocity(body, { x: body.velocity.x * .2, y: body.velocity.y * .2 });
+    }
+    return;
+  }
   const points = containerWallPoints(width, height);
   const wallClearance = 12;
   const top = Math.min(...points.map(point => point[1])) + wallClearance;
@@ -612,7 +638,11 @@ function hexToRgb(hex) {
 
 function containerPath(shape, width, height) {
   const path = new Path2D();
-  if (shape === 'bottle') {
+  if (shape === 'custom' && currentCustomContainer) {
+    const points = ContainerMask.wallPoints(currentCustomContainer, width, height);
+    points.forEach(([x, y], index) => index ? path.lineTo(x, y) : path.moveTo(x, y));
+    path.closePath();
+  } else if (shape === 'bottle') {
     path.moveTo(width * .30, 8);
     path.lineTo(width * .70, 8);
     path.lineTo(width * .70, 66);
@@ -654,6 +684,11 @@ function drawContainer() {
   ctx.fillStyle = shine;
   ctx.fillRect(0, 0, width, height);
   ctx.restore();
+}
+
+function drawCustomContainerSkin() {
+  if (shapeSelect.value !== 'custom' || !customSkinImage) return;
+  ctx.drawImage(customSkinImage, 0, 0, viewportSize.width, viewportSize.height);
 }
 
 function loadImage(src) {
@@ -964,14 +999,15 @@ function serializeCurrentScene() {
     });
   }
   return {
-    version: 1,
+    version: 2,
     container: {
       shape: shapeSelect.value,
       color: colorInput.value,
       width: Number(windowWidthInput.value),
       height: Number(windowHeightInput.value),
       defaultSize: Number(defaultSizeInput.value),
-      defaultRim: Number(defaultRimInput.value)
+      defaultRim: Number(defaultRimInput.value),
+      ...(shapeSelect.value === 'custom' && currentCustomContainer ? { custom: currentCustomContainer } : {})
     },
     items
   };
@@ -1013,7 +1049,28 @@ async function restoreSavedScene(requestedId = null) {
     currentSceneName = entry.name;
     sceneNameInput.value = entry.name;
     const container = scene.container;
-    shapeSelect.value = ['bottle', 'box'].includes(container.shape) ? container.shape : 'bottle';
+    let restoredCustom = container.shape === 'custom' ? ContainerMask.normalizeDefinition(container.custom) : null;
+    let restoredSkin = null;
+    if (restoredCustom) {
+      try {
+        restoredSkin = await loadImage(restoredCustom.skinDataUrl);
+      } catch {
+        restoredCustom = null;
+      }
+    }
+    if (restoredCustom && restoredSkin) {
+      currentCustomContainer = restoredCustom;
+      customSkinImage = restoredSkin;
+      customShapeOption.disabled = false;
+      customShapeOption.textContent = restoredCustom.name;
+      shapeSelect.value = 'custom';
+    } else {
+      currentCustomContainer = null;
+      customSkinImage = null;
+      customShapeOption.disabled = true;
+      customShapeOption.textContent = '自定义容器';
+      shapeSelect.value = ['bottle', 'box'].includes(container.shape) ? container.shape : 'bottle';
+    }
     colorInput.value = container.color || '#79b8ff';
     windowWidthInput.value = container.width || 360;
     windowHeightInput.value = container.height || 460;
@@ -1058,6 +1115,8 @@ async function restoreSavedScene(requestedId = null) {
         console.warn('Skipped one saved image:', error);
       }
     }
+    fitSpritesToContainer(viewportSize.width, viewportSize.height);
+    buildWalls(viewportSize.width, viewportSize.height);
     empty.classList.toggle('hidden', sprites.size > 0);
     if (sprites.size) showToast(`正在展示：${entry.name}`);
     await refreshSceneList();
@@ -1335,6 +1394,7 @@ function bodyAt(x, y) {
 function tick() {
   applyAudioReactiveMotion(performance.now());
   Engine.update(engine, 1000 / 60);
+  if (shapeSelect.value === 'custom') fitSpritesToContainer(viewportSize.width, viewportSize.height);
   ctx.clearRect(0, 0, viewportSize.width, viewportSize.height);
   ctx.save();
   drawContainer();
@@ -1358,6 +1418,7 @@ function tick() {
     }
     ctx.restore();
   }
+  drawCustomContainerSkin();
   ctx.restore();
   requestAnimationFrame(tick);
 }
@@ -1435,6 +1496,7 @@ canvas.addEventListener('pointermove', event => {
 function endSpriteDrag(event) {
   if (!draggedBody || (event?.pointerId != null && event.pointerId !== draggedPointerId)) return;
   const body = draggedBody;
+  keepBodyInside(body, viewportSize.width, viewportSize.height);
   Body.setStatic(body, false);
   Body.setVelocity(body, spriteDragVelocity);
   if (!spriteDragMoved) setSelection(body, false);
@@ -1490,6 +1552,27 @@ document.querySelector('#cutout').addEventListener('click', openCutoutEditor);
 document.querySelector('#quick-remove').addEventListener('click', removeSelected);
 document.querySelector('#quick-cutout').addEventListener('click', openCutoutEditor);
 document.querySelector('#container-menu').addEventListener('click', () => toggleToolPanel(containerPanel));
+customContainerButton.addEventListener('click', async () => {
+  if (!window.desktopPet.isDesktop) return showToast('自定义容器编辑器目前需要桌面版');
+  try {
+    const definition = ContainerMask.normalizeDefinition(await window.desktopPet.openContainerEditor(currentCustomContainer));
+    if (!definition) return;
+    const image = await loadImage(definition.skinDataUrl);
+    currentCustomContainer = definition;
+    customSkinImage = image;
+    customShapeOption.disabled = false;
+    customShapeOption.textContent = definition.name;
+    shapeSelect.value = 'custom';
+    toy.dataset.shape = 'custom';
+    fitSpritesToContainer(viewportSize.width, viewportSize.height);
+    buildWalls(viewportSize.width, viewportSize.height);
+    savePreferences();
+    closeToolPanels();
+    showToast(`已使用：${definition.name}`);
+  } catch (error) {
+    showToast(error.message || '无法打开自定义容器编辑器');
+  }
+});
 document.querySelector('#audio-menu').addEventListener('click', () => toggleToolPanel(audioPanel));
 document.querySelector('#save').addEventListener('click', () => {
   toggleToolPanel(scenePanel);
@@ -1512,6 +1595,7 @@ document.querySelector('#gravity').addEventListener('click', (event) => {
 });
 
 shapeSelect.addEventListener('change', () => {
+  if (shapeSelect.value === 'custom' && !currentCustomContainer) shapeSelect.value = 'bottle';
   toy.dataset.shape = shapeSelect.value;
   fitSpritesToContainer(viewportSize.width, viewportSize.height);
   buildWalls(viewportSize.width, viewportSize.height);

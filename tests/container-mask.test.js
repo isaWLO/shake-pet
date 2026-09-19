@@ -6,7 +6,8 @@ const {
   buildContainerDefinition,
   pointInPolygon,
   wallPoints,
-  normalizeDefinition
+  normalizeDefinition,
+  relocatePoint
 } = require('../container-mask');
 
 function rgba(width, height) {
@@ -93,6 +94,10 @@ assert.equal(buildContainerDefinition(new Uint8Array(16), 4, 4), null,
     'a malformed polygon must be rejected');
   assert.equal(normalizeDefinition({ ...valid, spawn: [0.95, 0.95] }), null,
     'the safe spawn point must be inside the activity region');
+  assert.deepEqual(relocatePoint([0.4, 0.6], valid), [0.4, 0.6],
+    'an in-bounds point must stay where the user put it');
+  assert.deepEqual(relocatePoint([0.95, 0.95], valid), [0.5, 0.5],
+    'an out-of-bounds point must return to the saved safe point');
 }
 
 console.log('container mask: ok');

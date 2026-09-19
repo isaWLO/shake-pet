@@ -93,6 +93,7 @@
     platform: 'web',
     isDesktop: false,
     pickImages,
+    openContainerEditor: async () => null,
     captureScreen: async () => null,
     close: () => {},
     setWindowSize: () => {},
