@@ -8,6 +8,8 @@ const empty = document.querySelector('#empty');
 const removeButton = document.querySelector('#remove');
 const cutoutButton = document.querySelector('#cutout');
 const controlsDock = document.querySelector('#controls-dock');
+const containerPanel = document.querySelector('#container-panel');
+const audioPanel = document.querySelector('#audio-panel');
 const shapeSelect = document.querySelector('#shape');
 const colorInput = document.querySelector('#container-color');
 const thresholdInput = document.querySelector('#threshold');
@@ -140,6 +142,17 @@ function showToast(message) {
   toastElement.textContent = message;
   toastElement.classList.remove('hidden');
   toastTimer = setTimeout(() => toastElement.classList.add('hidden'), 2200);
+}
+
+function closeToolPanels() {
+  for (const panel of [containerPanel, audioPanel, scenePanel]) panel.classList.add('hidden');
+}
+
+function toggleToolPanel(panel) {
+  const opening = panel.classList.contains('hidden');
+  closeToolPanels();
+  panel.classList.toggle('hidden', !opening);
+  controlsDock.classList.toggle('open', opening);
 }
 
 function setAudioStatus(message, state = '') {
@@ -1238,6 +1251,7 @@ function openCutoutEditor() {
   document.querySelector('#mode-erase').classList.add('active');
   document.querySelector('#mode-restore').classList.remove('active');
   controlsDock.classList.remove('open');
+  closeToolPanels();
   cutoutEditor.classList.remove('hidden');
 }
 
@@ -1423,7 +1437,7 @@ function endSpriteDrag(event) {
   const body = draggedBody;
   Body.setStatic(body, false);
   Body.setVelocity(body, spriteDragVelocity);
-  if (!spriteDragMoved) setSelection(body, true);
+  if (!spriteDragMoved) setSelection(body, false);
   else selectionPanel.classList.add('hidden');
   if (draggedPointerId != null && canvas.hasPointerCapture(draggedPointerId)) canvas.releasePointerCapture(draggedPointerId);
   draggedBody = null;
@@ -1443,6 +1457,20 @@ function endWindowDrag() {
 
 window.addEventListener('pointerup', event => { endSpriteDrag(event); endWindowDrag(); });
 window.addEventListener('blur', () => { endSpriteDrag(); endWindowDrag(); });
+canvas.addEventListener('dblclick', event => {
+  const rect = canvas.getBoundingClientRect();
+  const point = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  const body = bodyAt(point.x, point.y);
+  if (!body) return;
+  event.preventDefault();
+  setSelection(body, true);
+  const position = getQuickPanelPosition(point, viewportSize, {
+    width: selectionPanel.offsetWidth || 190,
+    height: selectionPanel.offsetHeight || 150
+  });
+  selectionPanel.style.left = `${position.left}px`;
+  selectionPanel.style.top = `${position.top}px`;
+});
 document.querySelector('#add').addEventListener('click', async () => addFiles(await window.desktopPet.pickImages()));
 document.querySelector('#capture').addEventListener('click', async () => {
   try {
@@ -1459,8 +1487,12 @@ document.querySelector('#capture').addEventListener('click', async () => {
 });
 document.querySelector('#remove').addEventListener('click', removeSelected);
 document.querySelector('#cutout').addEventListener('click', openCutoutEditor);
+document.querySelector('#quick-remove').addEventListener('click', removeSelected);
+document.querySelector('#quick-cutout').addEventListener('click', openCutoutEditor);
+document.querySelector('#container-menu').addEventListener('click', () => toggleToolPanel(containerPanel));
+document.querySelector('#audio-menu').addEventListener('click', () => toggleToolPanel(audioPanel));
 document.querySelector('#save').addEventListener('click', () => {
-  scenePanel.classList.toggle('hidden');
+  toggleToolPanel(scenePanel);
   refreshSceneList().catch(() => showToast('瓶子库读取失败'));
 });
 document.querySelector('#scene-close').addEventListener('click', () => scenePanel.classList.add('hidden'));
@@ -1468,7 +1500,9 @@ document.querySelector('#scene-new').addEventListener('click', () => saveCurrent
 document.querySelector('#scene-update').addEventListener('click', () => saveCurrentScene(!currentSceneId).catch(() => showToast('保存失败')));
 document.querySelector('#close').addEventListener('click', () => window.desktopPet.close());
 document.querySelector('#settings').addEventListener('click', (event) => {
-  controlsDock.classList.toggle('open');
+  const opening = !controlsDock.classList.contains('open');
+  controlsDock.classList.toggle('open', opening);
+  if (!opening) closeToolPanels();
   event.currentTarget.classList.toggle('active', controlsDock.classList.contains('open'));
 });
 document.querySelector('#gravity').addEventListener('click', (event) => {
@@ -1640,6 +1674,7 @@ window.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     setSelection(null);
     controlsDock.classList.remove('open');
+    closeToolPanels();
     document.querySelector('#settings').classList.remove('active');
   }
 });

@@ -5,6 +5,18 @@ function getWorldSize(element, fallbackWidth, fallbackHeight) {
   };
 }
 
+function getQuickPanelPosition(point, viewport, panel) {
+  const gap = 12;
+  const padding = 8;
+  const preferredLeft = point.x + gap + panel.width <= viewport.width - padding
+    ? point.x + gap
+    : point.x - panel.width - gap;
+  return {
+    left: Math.max(padding, Math.min(viewport.width - panel.width - padding, preferredLeft)),
+    top: Math.max(padding, Math.min(viewport.height - panel.height - padding, point.y - 20))
+  };
+}
+
 function getAudioControlMultiplier(value, midpointMultiplier) {
   return Math.max(0, Math.min(100, Number(value) || 0)) / 50 * midpointMultiplier;
 }
@@ -29,6 +41,7 @@ function getAudioWaveImpulse(wave, contact, bassStrength, strength, kick) {
 
 if (typeof module !== 'undefined') module.exports = {
   getWorldSize,
+  getQuickPanelPosition,
   getAudioControlMultiplier,
   getAudioWaveDisplayLevel,
   getAudioWaveImpulse

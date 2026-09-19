@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const {
   getWorldSize,
+  getQuickPanelPosition,
   getAudioControlMultiplier,
   getAudioWaveDisplayLevel,
   getAudioWaveImpulse
@@ -14,6 +15,15 @@ assert.deepEqual(
 assert.deepEqual(
   getWorldSize({ clientWidth: 0, clientHeight: 0 }, 360, 460),
   { width: 360, height: 460 }
+);
+
+assert.deepEqual(
+  getQuickPanelPosition({ x: 100, y: 120 }, { width: 360, height: 460 }, { width: 190, height: 150 }),
+  { left: 112, top: 100 }
+);
+assert.deepEqual(
+  getQuickPanelPosition({ x: 340, y: 450 }, { width: 360, height: 460 }, { width: 190, height: 150 }),
+  { left: 138, top: 302 }
 );
 
 const crest = getAudioWaveImpulse(

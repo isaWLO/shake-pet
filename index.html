@@ -21,101 +21,94 @@
       <span class="drag-space" aria-hidden="true"></span>
     </header>
 
+    <button id="close" class="floating-close" title="关闭" aria-label="关闭">×</button>
+
     <aside id="controls-dock" class="controls-dock">
       <button id="settings" class="controls-trigger" title="显示全部功能" aria-label="显示全部功能">⋮</button>
-      <section id="settings-panel" class="panel">
-      <div class="panel-section-title first">图片工具</div>
-      <div class="tool-grid">
-        <button id="add" title="添加图片"><span>＋</span>添加</button>
-        <button id="capture" title="截图"><span class="capture-glyph"></span>截图</button>
-        <button id="cutout" title="手动抠图" disabled><span>✂</span>抠图</button>
-        <button id="remove" title="删除选中图片" disabled><span>⌫</span>删除</button>
-        <button id="gravity" class="active" title="开关重力"><span>↓</span>重力</button>
-        <button id="save" title="打开瓶子库"><span class="save-glyph"></span>瓶子库</button>
-        <button id="lock" title="锁定并允许鼠标穿透（Ctrl+Shift+L 解锁）">
+      <nav class="tool-rail" aria-label="功能">
+        <button id="add" title="添加图片" aria-label="添加图片">＋</button>
+        <button id="capture" title="截图" aria-label="截图"><span class="capture-glyph"></span></button>
+        <button id="cutout" title="手动抠图" aria-label="手动抠图" disabled>✂</button>
+        <button id="remove" title="删除选中图片" aria-label="删除选中图片" disabled>⌫</button>
+        <button id="container-menu" title="容器设置" aria-label="容器设置">◈</button>
+        <button id="audio-menu" title="音频震动" aria-label="音频震动">♪</button>
+        <button id="gravity" class="active" title="开关重力" aria-label="开关重力">↓</button>
+        <button id="save" title="打开瓶子库" aria-label="打开瓶子库"><span class="save-glyph"></span></button>
+        <button id="lock" title="锁定并允许鼠标穿透（Ctrl+Shift+L 解锁）" aria-label="锁定并允许鼠标穿透">
           <svg class="lock-svg" viewBox="0 0 100 100" aria-hidden="true">
             <path d="M27 44V30C27 13 37 5 50 5s23 8 23 25v14" fill="none" stroke="currentColor" stroke-width="12" />
             <path fill="currentColor" fill-rule="evenodd" d="M18 40h64a8 8 0 0 1 8 8v40a8 8 0 0 1-8 8H18a8 8 0 0 1-8-8V48a8 8 0 0 1 8-8Zm32 17a8 8 0 0 0-4 15v13h8V72a8 8 0 0 0-4-15Z" />
           </svg>
-          锁定
         </button>
-        <button id="close" title="关闭"><span>×</span>关闭</button>
-      </div>
-      <label class="check">
-        <input id="auto-cutout" type="checkbox" checked />
-        <span>导入时自动抠图</span>
-      </label>
+      </nav>
 
-      <section id="selection-panel" class="selection-panel hidden">
-        <div class="panel-section-title">选中的图片</div>
-        <label>
-          <span>图片大小 <output id="sprite-size-value">100%</output></span>
-          <input id="sprite-size" type="range" min="40" max="180" value="100" />
+      <section id="container-panel" class="panel hidden">
+        <div class="panel-section-title first">容器</div>
+        <label class="check">
+          <input id="auto-cutout" type="checkbox" checked />
+          <span>导入时自动抠图</span>
         </label>
         <label>
-          <span>塑料框宽度 <output id="rim-width-value">6</output></span>
-          <input id="rim-width" type="range" min="1" max="32" value="16" />
+          <span>容器形状</span>
+          <select id="shape">
+            <option value="bottle">汽水瓶</option>
+            <option value="box">展示盒</option>
+          </select>
         </label>
+        <label>
+          <span>瓶子颜色</span>
+          <input id="container-color" type="color" value="#79b8ff" />
+        </label>
+        <label>
+          <span>默认图片大小 <output id="default-size-value">100%</output></span>
+          <input id="default-size" type="range" min="40" max="180" value="100" />
+        </label>
+        <label>
+          <span>默认塑料框 <output id="default-rim-value">16</output></span>
+          <input id="default-rim" type="range" min="1" max="32" value="16" />
+        </label>
+        <label>
+          <span>容器宽度 <output id="window-width-value">360</output></span>
+          <input id="window-width" type="range" min="300" max="700" value="360" />
+        </label>
+        <label>
+          <span>容器高度 <output id="window-height-value">460</output></span>
+          <input id="window-height" type="range" min="340" max="850" value="460" />
+        </label>
+        <div class="size-presets">
+          <button data-size="320,400">小</button>
+          <button data-size="360,460">中</button>
+          <button data-size="460,600">大</button>
+        </div>
       </section>
 
-      <div class="panel-section-title">容器</div>
-      <label>
-        <span>容器形状</span>
-        <select id="shape">
-          <option value="bottle">汽水瓶</option>
-          <option value="box">展示盒</option>
-        </select>
-      </label>
-      <label>
-        <span>瓶子颜色</span>
-        <input id="container-color" type="color" value="#79b8ff" />
-      </label>
-      <label>
-        <span>默认图片大小 <output id="default-size-value">100%</output></span>
-        <input id="default-size" type="range" min="40" max="180" value="100" />
-      </label>
-      <label>
-        <span>默认塑料框 <output id="default-rim-value">16</output></span>
-        <input id="default-rim" type="range" min="1" max="32" value="16" />
-      </label>
-      <label>
-        <span>容器宽度 <output id="window-width-value">360</output></span>
-        <input id="window-width" type="range" min="300" max="700" value="360" />
-      </label>
-      <label>
-        <span>容器高度 <output id="window-height-value">460</output></span>
-        <input id="window-height" type="range" min="340" max="850" value="460" />
-      </label>
-      <div class="size-presets">
-        <button data-size="320,400">小</button>
-        <button data-size="360,460">中</button>
-        <button data-size="460,600">大</button>
-      </div>
-      <div class="panel-section-title">音频震动</div>
-      <label class="check audio-toggle">
-        <input id="audio-reactive" type="checkbox" />
-        <span>跟随电脑音频</span>
-      </label>
-      <div class="audio-status-row">
-        <span id="audio-status">尚未开启</span>
-        <progress id="audio-meter" max="1" value="0"></progress>
-      </div>
-      <label>
-        <span>音频灵敏度 <output id="audio-sensitivity-value">50</output></span>
-        <input id="audio-sensitivity" type="range" min="0" max="100" value="50" />
-      </label>
-      <label>
-        <span>起跳力度 <output id="audio-bass-value">50</output></span>
-        <input id="audio-bass" type="range" min="0" max="100" value="50" />
-      </label>
-      <label>
-        <span>震动强度 <output id="audio-strength-value">50</output></span>
-        <input id="audio-strength" type="range" min="0" max="100" value="50" />
-      </label>
-      <button id="audio-test" class="audio-test" type="button">测试震动</button>
-      <p>音频只在本机实时分析，不会录制、保存或上传；macOS 或网页无法取得系统音轨时会改用麦克风。</p>
+      <section id="audio-panel" class="panel hidden">
+        <div class="panel-section-title first">音频震动</div>
+        <label class="check audio-toggle">
+          <input id="audio-reactive" type="checkbox" />
+          <span>跟随电脑音频</span>
+        </label>
+        <div class="audio-status-row">
+          <span id="audio-status">尚未开启</span>
+          <progress id="audio-meter" max="1" value="0"></progress>
+        </div>
+        <label>
+          <span>音频灵敏度 <output id="audio-sensitivity-value">50</output></span>
+          <input id="audio-sensitivity" type="range" min="0" max="100" value="50" />
+        </label>
+        <label>
+          <span>起跳力度 <output id="audio-bass-value">50</output></span>
+          <input id="audio-bass" type="range" min="0" max="100" value="50" />
+        </label>
+        <label>
+          <span>震动强度 <output id="audio-strength-value">50</output></span>
+          <input id="audio-strength" type="range" min="0" max="100" value="50" />
+        </label>
+        <button id="audio-test" class="audio-test" type="button">测试震动</button>
+        <p>音频只在本机实时分析，不会录制、保存或上传；macOS 或网页无法取得系统音轨时会改用麦克风。</p>
+      </section>
 
-      <section id="scene-panel" class="scene-panel hidden">
+      <section id="scene-panel" class="panel scene-panel hidden">
         <div class="scene-head">
           <strong>瓶子库</strong>
           <button id="scene-close" title="收起瓶子库">×</button>
@@ -127,8 +120,23 @@
         </div>
         <div id="scene-list"></div>
       </section>
-      </section>
     </aside>
+
+    <section id="selection-panel" class="selection-panel hidden">
+      <strong>快速修改</strong>
+      <label>
+        <span>图片大小 <output id="sprite-size-value">100%</output></span>
+        <input id="sprite-size" type="range" min="40" max="180" value="100" />
+      </label>
+      <label>
+        <span>塑料框宽度 <output id="rim-width-value">6</output></span>
+        <input id="rim-width" type="range" min="1" max="32" value="16" />
+      </label>
+      <div class="quick-actions">
+        <button id="quick-cutout">抠图</button>
+        <button id="quick-remove">删除</button>
+      </div>
+    </section>
 
     <section id="cutout-editor" class="editor hidden">
       <div class="editor-head">
