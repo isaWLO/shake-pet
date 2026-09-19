@@ -7,7 +7,7 @@ const dragSpace = document.querySelector('.drag-space');
 const empty = document.querySelector('#empty');
 const removeButton = document.querySelector('#remove');
 const cutoutButton = document.querySelector('#cutout');
-const settingsPanel = document.querySelector('#settings-panel');
+const controlsDock = document.querySelector('#controls-dock');
 const shapeSelect = document.querySelector('#shape');
 const colorInput = document.querySelector('#container-color');
 const thresholdInput = document.querySelector('#threshold');
@@ -104,17 +104,18 @@ windowHeightInput.value = preferences.windowHeight || 460;
 defaultSizeInput.value = preferences.defaultSize || 100;
 defaultRimInput.value = preferences.defaultRim || 16;
 audioReactiveInput.checked = false;
-audioSensitivityInput.value = preferences.audioSensitivity || 100;
-audioBassInput.value = preferences.audioBass || 100;
-audioStrengthInput.value = preferences.audioStrength || 100;
+const audioTuningIsCurrent = preferences.audioTuningVersion === 2;
+audioSensitivityInput.value = audioTuningIsCurrent ? (preferences.audioSensitivity ?? 50) : 50;
+audioBassInput.value = audioTuningIsCurrent ? (preferences.audioBass ?? 50) : 50;
+audioStrengthInput.value = audioTuningIsCurrent ? (preferences.audioStrength ?? 50) : 50;
 thresholdValue.value = thresholdInput.value;
 windowWidthValue.value = windowWidthInput.value;
 windowHeightValue.value = windowHeightInput.value;
 defaultSizeValue.value = `${defaultSizeInput.value}%`;
 defaultRimValue.value = defaultRimInput.value;
-audioSensitivityValue.value = `${audioSensitivityInput.value}%`;
-audioBassValue.value = `${audioBassInput.value}%`;
-audioStrengthValue.value = `${audioStrengthInput.value}%`;
+audioSensitivityValue.value = audioSensitivityInput.value;
+audioBassValue.value = audioBassInput.value;
+audioStrengthValue.value = audioStrengthInput.value;
 toy.dataset.shape = shapeSelect.value;
 
 function savePreferences() {
@@ -127,6 +128,7 @@ function savePreferences() {
     windowHeight: Number(windowHeightInput.value),
     defaultSize: Number(defaultSizeInput.value),
     defaultRim: Number(defaultRimInput.value),
+    audioTuningVersion: 2,
     audioSensitivity: Number(audioSensitivityInput.value),
     audioBass: Number(audioBassInput.value),
     audioStrength: Number(audioStrengthInput.value)
@@ -300,7 +302,7 @@ function audioWaveMaximumHeight(baseline) {
 }
 
 function audioWaveDisplayLevel(value) {
-  return Math.pow(Math.min(1, Math.max(0, value)), 1.65);
+  return getAudioWaveDisplayLevel(value);
 }
 
 function audioWaveHorizontalRange() {
@@ -411,7 +413,7 @@ function analyzeAudio(now) {
       const normalized = (sample - 128) / 128;
       squares += normalized * normalized;
     }
-    const sensitivity = Number(audioSensitivityInput.value) / 100;
+    const sensitivity = getAudioControlMultiplier(audioSensitivityInput.value, 2.2);
     const rms = Math.sqrt(squares / audioWaveformData.length);
     volume = Math.max(0, Math.min(1, (rms - .012) * sensitivity * 3.4));
     bass = Math.max(0, Math.min(1, (frequencyBandLevel(20, 180) - .025) * sensitivity * 2.15));
@@ -439,8 +441,8 @@ function analyzeAudio(now) {
 
 function applyAudioReactiveMotion(now) {
   analyzeAudio(now);
-  const strength = Number(audioStrengthInput.value) / 100;
-  const bassStrength = Number(audioBassInput.value) / 100;
+  const strength = getAudioControlMultiplier(audioStrengthInput.value, 2);
+  const bassStrength = getAudioControlMultiplier(audioBassInput.value, 2);
   audioKick *= .86;
 
   const bodies = Composite.allBodies(engine.world).filter(body => sprites.has(body.id) && !body.isStatic);
@@ -1235,8 +1237,7 @@ function openCutoutEditor() {
   editorMode = 'erase';
   document.querySelector('#mode-erase').classList.add('active');
   document.querySelector('#mode-restore').classList.remove('active');
-  settingsPanel.classList.add('hidden');
-  document.querySelector('#settings').classList.remove('active');
+  controlsDock.classList.remove('open');
   cutoutEditor.classList.remove('hidden');
 }
 
@@ -1460,7 +1461,6 @@ document.querySelector('#remove').addEventListener('click', removeSelected);
 document.querySelector('#cutout').addEventListener('click', openCutoutEditor);
 document.querySelector('#save').addEventListener('click', () => {
   scenePanel.classList.toggle('hidden');
-  settingsPanel.classList.add('hidden');
   refreshSceneList().catch(() => showToast('瓶子库读取失败'));
 });
 document.querySelector('#scene-close').addEventListener('click', () => scenePanel.classList.add('hidden'));
@@ -1468,8 +1468,8 @@ document.querySelector('#scene-new').addEventListener('click', () => saveCurrent
 document.querySelector('#scene-update').addEventListener('click', () => saveCurrentScene(!currentSceneId).catch(() => showToast('保存失败')));
 document.querySelector('#close').addEventListener('click', () => window.desktopPet.close());
 document.querySelector('#settings').addEventListener('click', (event) => {
-  settingsPanel.classList.toggle('hidden');
-  event.currentTarget.classList.toggle('active', !settingsPanel.classList.contains('hidden'));
+  controlsDock.classList.toggle('open');
+  event.currentTarget.classList.toggle('active', controlsDock.classList.contains('open'));
 });
 document.querySelector('#gravity').addEventListener('click', (event) => {
   gravityOn = !gravityOn;
@@ -1498,15 +1498,15 @@ thresholdInput.addEventListener('input', () => {
 });
 autoCutoutInput.addEventListener('change', savePreferences);
 audioSensitivityInput.addEventListener('input', () => {
-  audioSensitivityValue.value = `${audioSensitivityInput.value}%`;
+  audioSensitivityValue.value = audioSensitivityInput.value;
   savePreferences();
 });
 audioBassInput.addEventListener('input', () => {
-  audioBassValue.value = `${audioBassInput.value}%`;
+  audioBassValue.value = audioBassInput.value;
   savePreferences();
 });
 audioStrengthInput.addEventListener('input', () => {
-  audioStrengthValue.value = `${audioStrengthInput.value}%`;
+  audioStrengthValue.value = audioStrengthInput.value;
   savePreferences();
 });
 audioReactiveInput.addEventListener('change', async () => {
@@ -1639,7 +1639,7 @@ window.addEventListener('keydown', (event) => {
   if (event.key === 'Delete' || event.key === 'Backspace') removeSelected();
   if (event.key === 'Escape') {
     setSelection(null);
-    settingsPanel.classList.add('hidden');
+    controlsDock.classList.remove('open');
     document.querySelector('#settings').classList.remove('active');
   }
 });

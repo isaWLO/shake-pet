@@ -57,19 +57,12 @@ html[data-platform="web"] .size-presets {
   height: 50px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 10px 0 16px;
+  padding: 0 34px 0 16px;
   -webkit-app-region: no-drag;
 }
 
 .drag-space { height: 100%; flex: 1; cursor: grab; }
 .drag-space:active { cursor: grabbing; }
-
-.actions {
-  display: flex;
-  gap: 4px;
-  -webkit-app-region: no-drag;
-}
 
 button {
   width: 28px;
@@ -96,15 +89,41 @@ button:disabled { opacity: .28; cursor: default; }
 .save-glyph::after { content:""; position:absolute; left:2.5px; bottom:2px; width:6px; height:3px; border:1.5px solid currentColor; border-radius:1px; }
 .capture-glyph { position: relative; display: block; width: 15px; height: 11px; border: 1.5px solid currentColor; border-radius: 3px; opacity: .82; }
 .capture-glyph::before { position: absolute; top: 2px; left: 4px; width: 4px; height: 4px; content: ""; border: 1.5px solid currentColor; border-radius: 50%; }
-.capture-glyph::after { position: absolute; top: -4px; left: 3px; width: 6px; height: 3px; content: ""; border: 1.5px solid currentColor; border-bottom: 0; border-radius: 2px 2px 0 0; }
+.capture-glyph::after { position: absolute; top: -3px; left: 3px; width: 6px; height: 3px; content: ""; border-radius: 2px 2px 0 0; background: currentColor; }
+
+.controls-dock {
+  position: absolute;
+  z-index: 9;
+  top: 58px;
+  right: 0;
+  width: 28px;
+  min-height: 58px;
+  -webkit-app-region: no-drag;
+}
+
+button.controls-trigger {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 24px;
+  height: 54px;
+  border-right: 0;
+  border-radius: 13px 0 0 13px;
+  color: rgba(255,255,255,.62);
+  font-size: 18px;
+  line-height: 50px;
+}
+
+.controls-dock:hover .controls-trigger,
+.controls-dock:focus-within .controls-trigger,
+.controls-dock.open .controls-trigger { color: white; background: rgba(121,184,255,.38); }
 
 .panel {
   position: absolute;
-  z-index: 8;
-  top: 52px;
-  right: 12px;
-  width: 218px;
-  max-height: calc(100% - 64px);
+  top: -6px;
+  right: 24px;
+  width: 236px;
+  max-height: calc(100vh - 70px);
   padding: 14px;
   overflow-x: hidden;
   overflow-y: auto;
@@ -116,25 +135,42 @@ button:disabled { opacity: .28; cursor: default; }
   background: rgba(17,21,31,.88);
   box-shadow: 0 12px 35px rgba(0,0,0,.35);
   backdrop-filter: blur(16px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(8px);
+  transition: opacity .14s ease, transform .14s ease, visibility .14s;
+}
+
+.controls-dock:hover .panel,
+.controls-dock:focus-within .panel,
+.controls-dock.open .panel {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(0);
 }
 
 .panel::-webkit-scrollbar { width: 6px; }
 .panel::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(255,255,255,.22); }
 
 .panel.hidden, #toast.hidden { display: none; }
-.panel label { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 13px; font-size: 12px; }
-.panel label:not(.check) > span { min-width: 72px; }
-.panel label:nth-of-type(n+3):not(.check) { display: block; }
-.panel label:nth-of-type(n+3):not(.check) span { display: flex; justify-content: space-between; margin-bottom: 5px; }
-.panel select { width: 100px; padding: 5px; border: 0; border-radius: 7px; color: white; background: #343b4e; }
+.panel label { display: block; margin-bottom: 13px; font-size: 12px; }
+.panel label:not(.check) > span { display: flex; justify-content: space-between; margin-bottom: 5px; }
+.panel select { width: 100%; padding: 5px; border: 0; border-radius: 7px; color: white; background: #343b4e; }
 .panel input[type="color"] { width: 42px; height: 28px; padding: 2px; border: 0; border-radius: 7px; background: #343b4e; }
 .panel input[type="range"] { width: 100%; accent-color: #79b8ff; }
-.panel .check { justify-content: flex-start; }
+.panel .check { display: flex; align-items: center; gap: 8px; }
 .panel .check input { accent-color: #79b8ff; }
 .panel p { margin: 2px 0 0; color: rgba(255,255,255,.42); font-size: 10px; line-height: 1.5; }
 .size-presets { display: flex; gap: 7px; margin: -3px 0 12px; }
 .size-presets button { width: auto; height: 25px; flex: 1; border-radius: 8px; font-size: 11px; line-height: 22px; }
 .panel-section-title { margin: 2px 0 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.11); color: rgba(255,255,255,.95); font-size: 12px; font-weight: 600; }
+.panel-section-title.first { padding-top: 0; border-top: 0; }
+.tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 12px; }
+.tool-grid button { width: 100%; height: 30px; gap: 6px; border-radius: 9px; font-size: 11px; line-height: 27px; }
+.tool-grid button > span:first-child,
+.tool-grid button > svg:first-child { flex: 0 0 auto; }
 .panel .audio-toggle { margin-bottom: 7px; }
 .audio-status-row { display: grid; grid-template-columns: 74px 1fr; align-items: center; gap: 8px; margin: 0 0 11px 22px; color: rgba(255,255,255,.48); font-size: 10px; }
 .audio-status-row.active { color: #9dccff; }
@@ -144,7 +180,7 @@ button:disabled { opacity: .28; cursor: default; }
 #audio-meter::-webkit-progress-value { border-radius: 999px; background: linear-gradient(90deg,#79b8ff,#d79dff); transition: width .06s linear; }
 button.audio-test { width: 100%; height: 27px; margin: -3px 0 13px; border-radius: 8px; font-size: 11px; line-height: 24px; }
 
-.scene-panel { position:absolute; z-index:12; top:48px; right:10px; width:250px; max-height:calc(100% - 64px); padding:13px; overflow:auto; border:1px solid rgba(255,255,255,.17); border-radius:16px; color:white; background:rgba(14,18,27,.94); box-shadow:0 14px 38px rgba(0,0,0,.42); backdrop-filter:blur(16px); }
+.scene-panel { margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,.11); color:white; }
 .scene-panel.hidden { display:none; }
 .scene-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; }
 .scene-head strong { font-size:13px; }
@@ -158,24 +194,10 @@ button.audio-test { width: 100%; height: 27px; margin: -3px 0 13px; border-radiu
 .scene-row button { width:auto; height:24px; padding:0 7px; border-radius:7px; font-size:10px; }
 
 .selection-panel {
-  position: absolute;
-  z-index: 7;
-  left: 14px;
-  bottom: 18px;
-  width: 190px;
-  padding: 12px;
-  border: 1px solid rgba(255,255,255,.17);
-  border-radius: 14px;
+  margin: 2px 0 10px;
   color: rgba(255,255,255,.86);
-  background: rgba(16,20,30,.84);
-  box-shadow: 0 9px 28px rgba(0,0,0,.3);
-  backdrop-filter: blur(14px);
 }
 .selection-panel.hidden { display: none; }
-.selection-panel strong { display: block; margin-bottom: 9px; font-size: 11px; }
-.selection-panel label { display: block; margin-top: 8px; font-size: 10px; }
-.selection-panel label span { display: flex; justify-content: space-between; margin-bottom: 3px; }
-.selection-panel input { width: 100%; accent-color: #79b8ff; }
 
 .editor {
   position: absolute;
@@ -243,9 +265,7 @@ button.primary { border-color: rgba(121,184,255,.55); background: rgba(63,139,23
 }
 
 body.locked #handle,
-body.locked #settings-panel,
-body.locked #selection-panel,
-body.locked #scene-panel,
+body.locked #controls-dock,
 body.locked #empty {
   opacity: 0;
   pointer-events: none;
@@ -353,16 +373,6 @@ html[data-platform="web"] #handle {
 
 html[data-platform="web"] .drag-space { display: none; }
 
-html[data-platform="web"] .actions {
-  gap: 5px;
-  padding: 7px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--paper-raised);
-  box-shadow: 0 10px 30px rgba(121, 71, 86, .16);
-  backdrop-filter: blur(14px);
-}
-
 html[data-platform="web"] button {
   width: 34px;
   height: 34px;
@@ -381,6 +391,7 @@ html[data-platform="web"] button.active {
 
 html[data-platform="web"] button:active { transform: translateY(1px) scale(.98); }
 html[data-platform="web"] button.audio-test,
+html[data-platform="web"] .tool-grid button,
 html[data-platform="web"] .scene-actions button,
 html[data-platform="web"] button.wide,
 html[data-platform="web"] button.text-button {
@@ -389,12 +400,11 @@ html[data-platform="web"] button.text-button {
   font-size: 11px;
 }
 html[data-platform="web"] button.audio-test { width: 100%; }
+html[data-platform="web"] .tool-grid button { width: 100%; height: 30px; }
 html[data-platform="web"] .scene-actions button { flex: 1; }
 html[data-platform="web"] .scene-row button { width: auto; }
 
 html[data-platform="web"] .panel,
-html[data-platform="web"] .scene-panel,
-html[data-platform="web"] .selection-panel,
 html[data-platform="web"] .editor {
   border-color: var(--line);
   color: var(--ink);
@@ -402,7 +412,8 @@ html[data-platform="web"] .editor {
   box-shadow: 0 14px 38px rgba(121, 71, 86, .18);
 }
 
-html[data-platform="web"] .panel { top: 10px; right: 10px; max-height: calc(100% - 78px); }
+html[data-platform="web"] .controls-dock { top: 20px; }
+html[data-platform="web"] .panel { max-height: calc(100dvh - 180px); }
 html[data-platform="web"] .panel p,
 html[data-platform="web"] .editor-head small,
 html[data-platform="web"] .audio-status-row { color: var(--muted); }
@@ -419,9 +430,7 @@ html[data-platform="web"] #scene-name {
 }
 html[data-platform="web"] input[type="range"],
 html[data-platform="web"] input[type="checkbox"] { accent-color: var(--rose); }
-html[data-platform="web"] .scene-panel { top: 10px; right: 10px; max-height: calc(100% - 78px); }
 html[data-platform="web"] .scene-row.active { color: var(--rose); }
-html[data-platform="web"] .selection-panel { bottom: 72px; }
 html[data-platform="web"] .editor { inset: 4px; }
 html[data-platform="web"] button.primary { border-color: var(--rose); background: var(--rose); color: #fff; }
 
@@ -444,8 +453,7 @@ html[data-platform="web"] #toast { bottom: 76px; color: #fff; background: rgba(8
     min-height: min(360px, calc(100dvh - 102px));
   }
   html[data-platform="web"] .web-doodle { display: none; }
-  html[data-platform="web"] .panel,
-  html[data-platform="web"] .scene-panel { right: 50%; transform: translateX(50%); width: min(280px, calc(100% - 20px)); }
+  html[data-platform="web"] .panel { width: min(280px, calc(100vw - 48px)); }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -467,4 +475,5 @@ html[data-platform="web"] #toast { bottom: 76px; color: #fff; background: rgba(8
 
 @media (prefers-reduced-motion: reduce) {
   html[data-platform="web"] .web-doodle { animation: none; }
+  .panel { transition: none; }
 }
