@@ -28,5 +28,10 @@ assert.deepEqual(
   getAudioWaveImpulse({ risePixels: 0, displayedLevel: .1, slope: 0 }, 1, 1, 1, 0),
   { x: 0, y: 0 }
 );
+assert.deepEqual(
+  getAudioWaveImpulse({ risePixels: 3, displayedLevel: .25, slope: .2 }, 1, 1, 1, 0),
+  { x: 0, y: 0 },
+  'small waves should not make images tremble in place'
+);
 
 console.log('world layout: ok');

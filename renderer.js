@@ -468,10 +468,6 @@ function applyAudioReactiveMotion(now) {
           body.plugin.audioWaveLiftAt = now;
         }
       }
-      Body.applyForce(body, body.position, {
-        x: wave.slope * activity * strength * .00018 * body.mass,
-        y: -(wave.displayedLevel * .70 + audioLevels.bass * .30) * bassStrength * strength * .00018 * body.mass
-      });
     }
   }
 }
