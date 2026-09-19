@@ -90,6 +90,10 @@
     resolve?.(result);
   }
 
+  function editorHost() {
+    return window.opener || (window.parent !== window ? window.parent : null);
+  }
+
   window.addEventListener('message', event => {
     if (!customEditorWindow || event.source !== customEditorWindow) return;
     const data = event.data || {};
@@ -120,14 +124,15 @@
   }
 
   function listenForCustomContainerInitial(callback) {
-    if (!window.opener) return;
+    const host = editorHost();
+    if (!host) return;
     const handler = event => {
-      if (event.source !== window.opener || event.data?.type !== 'shake-pet-custom-container-init') return;
+      if (event.source !== host || event.data?.type !== 'shake-pet-custom-container-init') return;
       window.removeEventListener('message', handler);
       callback(event.data.initial || null);
     };
     window.addEventListener('message', handler);
-    window.opener.postMessage({ type: 'shake-pet-custom-container-ready' }, '*');
+    host.postMessage({ type: 'shake-pet-custom-container-ready' }, '*');
   }
 
   window.addEventListener('pointermove', event => {
@@ -147,8 +152,14 @@
     pickImages,
     openContainerEditor: openCustomContainerEditor,
     onCustomContainerInitial: listenForCustomContainerInitial,
-    submitCustomContainer: definition => window.opener?.postMessage({ type: 'shake-pet-custom-container-submit', definition }, '*'),
-    cancelCustomContainer: () => window.opener?.postMessage({ type: 'shake-pet-custom-container-cancel' }, '*'),
+    submitCustomContainer: definition => {
+      editorHost()?.postMessage({ type: 'shake-pet-custom-container-submit', definition }, '*');
+      if (window.opener) window.close();
+    },
+    cancelCustomContainer: () => {
+      editorHost()?.postMessage({ type: 'shake-pet-custom-container-cancel' }, '*');
+      if (window.opener) window.close();
+    },
     captureScreen: async () => null,
     close: () => {},
     setWindowSize: () => {},

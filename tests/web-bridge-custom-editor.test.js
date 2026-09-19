@@ -58,3 +58,32 @@ resultPromise.then(result => {
   assert.deepEqual(result, definition);
   console.log('web custom editor bridge: ok');
 });
+
+const editorMessages = [];
+const editorListeners = new Map();
+const editorWindow = {
+  opener: { postMessage(message) { editorMessages.push(message); } },
+  closed: false,
+  close() { this.closed = true; },
+  addEventListener(type, callback) {
+    const callbacks = editorListeners.get(type) || [];
+    callbacks.push(callback);
+    editorListeners.set(type, callbacks);
+  },
+  removeEventListener() {}
+};
+vm.runInNewContext(source, {
+  window: editorWindow,
+  document: { documentElement: { dataset: {} } },
+  setTimeout,
+  clearTimeout,
+  setInterval,
+  clearInterval,
+  URL,
+  location: { href: 'http://localhost/custom-container.html' },
+  fetch: async () => { throw new Error('not used'); },
+  FileReader: class {}
+});
+editorWindow.desktopPet.submitCustomContainer(definition);
+assert.equal(editorMessages[0].type, 'shake-pet-custom-container-submit');
+assert.equal(editorWindow.closed, true, 'saving from the web editor must close its popup');
