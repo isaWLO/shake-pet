@@ -93,6 +93,7 @@
     platform: 'web',
     isDesktop: false,
     pickImages,
+    captureScreen: async () => null,
     close: () => {},
     setWindowSize: () => {},
     loadImageUrl: async sourceUrl => {
