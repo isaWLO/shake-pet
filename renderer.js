@@ -1553,7 +1553,6 @@ document.querySelector('#quick-remove').addEventListener('click', removeSelected
 document.querySelector('#quick-cutout').addEventListener('click', openCutoutEditor);
 document.querySelector('#container-menu').addEventListener('click', () => toggleToolPanel(containerPanel));
 customContainerButton.addEventListener('click', async () => {
-  if (!window.desktopPet.isDesktop) return showToast('自定义容器编辑器目前需要桌面版');
   try {
     const definition = ContainerMask.normalizeDefinition(await window.desktopPet.openContainerEditor(currentCustomContainer));
     if (!definition) return;

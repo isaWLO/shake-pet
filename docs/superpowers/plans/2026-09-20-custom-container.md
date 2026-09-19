@@ -81,9 +81,8 @@
 - Produces: scene version 2 `container.custom` payload and backward-compatible restore behavior.
 
 - [ ] **Step 1: Add failing tests** for malformed-definition rejection, normalized wall mapping, and relocation to the saved spawn point.
-- [ ] **Step 2: Add the custom option and editor entry** to the existing container panel; web mode reports the feature unavailable instead of throwing.
+- [ ] **Step 2: Add the custom option and editor entry** to the existing container panel; web mode opens the same editor in a browser popup and uses `postMessage` to return the result.
 - [ ] **Step 3: Load and apply the returned skin**; rebuild walls from its polygon, constrain out-of-region sprite centers, clip the audio waveform, and draw the PNG shell above sprites.
 - [ ] **Step 4: Serialize scene version 2 and restore valid custom scenes**; malformed data falls back to bottle while version 1 scenes remain unchanged.
 - [ ] **Step 5: Run `npm test` and `npm run build:web`; launch Electron for a smoke check** of editor open, built-in magic selection, brush/erase, save, resize, scene save, and scene restore.
 - [ ] **Step 6: Commit** with `Integrate custom containers`.
-

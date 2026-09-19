@@ -10,6 +10,13 @@ async function buildWeb() {
   for (const file of ['styles.css', 'renderer.js', 'web-bridge.js', 'world-layout.js', 'ai-cutout.js', 'container-mask.js']) {
     await fs.copyFile(path.join(root, file), path.join(output, file));
   }
+  await fs.copyFile(path.join(root, 'custom-container.html'), path.join(output, 'custom-container.html'));
+  await fs.copyFile(path.join(root, 'custom-container.js'), path.join(output, 'custom-container.js'));
+  await fs.mkdir(path.join(output, 'assets', 'containers'), { recursive: true });
+  await fs.copyFile(
+    path.join(root, 'assets', 'containers', 'retro-pink-pet.png'),
+    path.join(output, 'assets', 'containers', 'retro-pink-pet.png')
+  );
   const html = (await fs.readFile(path.join(root, 'index.html'), 'utf8'))
     .replace('node_modules/matter-js/build/matter.min.js', 'vendor/matter.min.js');
   await fs.writeFile(path.join(output, 'index.html'), html, 'utf8');
