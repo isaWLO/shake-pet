@@ -22,8 +22,7 @@ html[data-platform="web"] {
 
 html[data-platform="web"] #close,
 html[data-platform="web"] #lock,
-html[data-platform="web"] #capture,
-html[data-platform="web"] #editor-ai {
+html[data-platform="web"] #capture {
   display: none;
 }
 

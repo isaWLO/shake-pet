@@ -63,6 +63,7 @@ let selectedBody = null;
 let gravityOn = true;
 let lastMotion = { vx: 0, vy: 0 };
 let draggingWindow = false;
+let webWindowDrag = null;
 let toastTimer = null;
 let editorOriginalCanvas = null;
 let editorMode = 'erase';
@@ -1473,10 +1474,39 @@ function beginWindowDrag(event) {
   if (draggingWindow || event.button !== 0) return;
   draggingWindow = true;
   canvas.classList.add('dragging');
+  if (!window.desktopPet.isDesktop) {
+    const rect = toy.getBoundingClientRect();
+    webWindowDrag = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height
+    };
+    toy.style.left = `${rect.left}px`;
+    toy.style.top = `${rect.top}px`;
+    toy.style.transform = 'none';
+    canvas.setPointerCapture?.(event.pointerId);
+  }
   window.desktopPet.beginWindowDrag(event.screenX, event.screenY);
 }
 
 dragSpace.addEventListener('pointerdown', beginWindowDrag);
+
+window.addEventListener('pointermove', event => {
+  if (!draggingWindow || window.desktopPet.isDesktop || !webWindowDrag) return;
+  if (event.pointerId !== webWindowDrag.pointerId) return;
+  const position = clampToyPosition(
+    webWindowDrag.left + event.clientX - webWindowDrag.x,
+    webWindowDrag.top + event.clientY - webWindowDrag.y,
+    { width: window.innerWidth, height: window.innerHeight },
+    { width: webWindowDrag.width, height: webWindowDrag.height }
+  );
+  toy.style.left = `${position.left}px`;
+  toy.style.top = `${position.top}px`;
+});
 
 canvas.addEventListener('pointermove', event => {
   if (!draggedBody || event.pointerId !== draggedPointerId) return;
@@ -1513,14 +1543,19 @@ function endSpriteDrag(event) {
   canvas.classList.remove('dragging');
 }
 
-function endWindowDrag() {
+function endWindowDrag(event) {
   if (!draggingWindow) return;
+  if (webWindowDrag && event?.pointerId != null && event.pointerId !== webWindowDrag.pointerId) return;
+  if (webWindowDrag?.pointerId != null && canvas.hasPointerCapture?.(webWindowDrag.pointerId)) {
+    canvas.releasePointerCapture(webWindowDrag.pointerId);
+  }
   draggingWindow = false;
+  webWindowDrag = null;
   canvas.classList.remove('dragging');
   window.desktopPet.endWindowDrag();
 }
 
-window.addEventListener('pointerup', event => { endSpriteDrag(event); endWindowDrag(); });
+window.addEventListener('pointerup', event => { endSpriteDrag(event); endWindowDrag(event); });
 window.addEventListener('blur', () => { endSpriteDrag(); endWindowDrag(); });
 canvas.addEventListener('dblclick', event => {
   const rect = canvas.getBoundingClientRect();
