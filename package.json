@@ -8,7 +8,7 @@
   "scripts": {
     "start": "electron .",
     "web": "node scripts/serve-web.js",
-    "test": "node tests/world-layout.test.js && node tests/capture-region.test.js && node tests/ai-model.test.js && node tests/ai-cutout.test.js && node tests/container-mask.test.js && node tests/web-bridge-custom-editor.test.js",
+    "test": "node tests/world-layout.test.js && node tests/capture-region.test.js && node tests/ai-model.test.js && node tests/ai-cutout.test.js && node tests/web-ai-model.test.js && node tests/container-mask.test.js && node tests/web-bridge-custom-editor.test.js",
     "build:web": "node scripts/build-web.js",
     "dist:mac": "electron-builder --mac dmg"
   },
@@ -32,6 +32,7 @@
       "preload.js",
       "renderer.js",
       "web-bridge.js",
+      "web-ai-model.js",
       "world-layout.js",
       "ai-model.js",
       "ai-cutout.js",

@@ -170,6 +170,10 @@
       if (!['http:', 'https:'].includes(url.protocol)) throw new Error('只支持 http 或 https 图片');
       return { name: decodeURIComponent(url.pathname.split('/').pop() || '网页图片'), dataUrl: await dataUrlFromResponse(await fetch(url)) };
     },
+    getAiCutoutModel: async () => {
+      if (!window.webAiModel?.loadWebAiModel) throw new Error('AI 模型加载器不可用');
+      return await window.webAiModel.loadWebAiModel();
+    },
     setClickThrough: locked => {
       for (const listener of lockListeners) listener(Boolean(locked));
     },

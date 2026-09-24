@@ -1225,12 +1225,15 @@ function loadDesktopScript(source) {
 async function getAiCutoutSession() {
   if (aiSessionPromise) return aiSessionPromise;
   aiSessionPromise = (async () => {
-    if (!window.desktopPet.isDesktop || !window.desktopPet.getAiCutoutModel) {
+    if (!window.desktopPet?.getAiCutoutModel) {
       throw new Error('当前版本暂不支持 AI 抠图');
     }
-    if (!window.ort) await loadDesktopScript('node_modules/onnxruntime-web/dist/ort.wasm.min.js');
+    const runtimePath = window.desktopPet.isDesktop
+      ? 'node_modules/onnxruntime-web/dist/'
+      : 'vendor/ort/';
+    if (!window.ort) await loadDesktopScript(`${runtimePath}ort.wasm.min.js`);
     window.ort.env.wasm.numThreads = 1;
-    window.ort.env.wasm.wasmPaths = new URL('node_modules/onnxruntime-web/dist/', location.href).href;
+    window.ort.env.wasm.wasmPaths = new URL(runtimePath, location.href).href;
     const received = await window.desktopPet.getAiCutoutModel();
     const model = received instanceof Uint8Array
       ? received

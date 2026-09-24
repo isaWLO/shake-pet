@@ -6,8 +6,8 @@ const output = path.join(root, 'dist-web');
 
 async function buildWeb() {
   await fs.rm(output, { recursive: true, force: true });
-  await fs.mkdir(path.join(output, 'vendor'), { recursive: true });
-  for (const file of ['styles.css', 'renderer.js', 'web-bridge.js', 'world-layout.js', 'ai-cutout.js', 'container-mask.js']) {
+  await fs.mkdir(path.join(output, 'vendor', 'ort'), { recursive: true });
+  for (const file of ['styles.css', 'renderer.js', 'web-ai-model.js', 'web-bridge.js', 'world-layout.js', 'ai-cutout.js', 'container-mask.js']) {
     await fs.copyFile(path.join(root, file), path.join(output, file));
   }
   await fs.copyFile(path.join(root, 'custom-container.html'), path.join(output, 'custom-container.html'));
@@ -24,6 +24,12 @@ async function buildWeb() {
     path.join(root, 'node_modules', 'matter-js', 'build', 'matter.min.js'),
     path.join(output, 'vendor', 'matter.min.js')
   );
+  for (const file of ['ort.wasm.min.js', 'ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm']) {
+    await fs.copyFile(
+      path.join(root, 'node_modules', 'onnxruntime-web', 'dist', file),
+      path.join(output, 'vendor', 'ort', file)
+    );
+  }
   await fs.writeFile(path.join(output, '.nojekyll'), '', 'utf8');
   return output;
 }
