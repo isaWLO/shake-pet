@@ -160,7 +160,6 @@
       editorHost()?.postMessage({ type: 'shake-pet-custom-container-cancel' }, '*');
       if (window.opener) window.close();
     },
-    captureScreen: async () => null,
     close: () => {},
     setWindowSize: () => {},
     loadImageUrl: async sourceUrl => {
