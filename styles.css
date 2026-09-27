@@ -489,6 +489,16 @@ html[data-platform="web"] #empty strong { color: var(--ink); font-size: 17px; fo
 html[data-platform="web"] #empty span { font-size: 11px; line-height: 1.55; }
 html[data-platform="web"] #toast { bottom: 76px; color: #fff; background: rgba(86, 49, 61, .88); }
 
+html[data-platform="web"] .custom-editor-frame {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #17151d;
+}
+
 @media (max-width: 560px) {
   html[data-platform="web"] .web-brand { top: 12px; }
   html[data-platform="web"] .web-brand p { display: none; }
